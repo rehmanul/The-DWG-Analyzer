@@ -811,7 +811,7 @@ def load_uploaded_file(uploaded_file):
             st.error(f"Unsupported file format: {file_ext}. Please upload DWG or DXF files only.")
             return None
 
-        # Check file size with stricter limits for performance
+        # Check file size and read with memory optimization
         try:
             file_bytes = uploaded_file.getvalue()
         except Exception as e:
@@ -823,33 +823,95 @@ def load_uploaded_file(uploaded_file):
             return None
 
         file_size_mb = len(file_bytes) / (1024 * 1024)
+        
+        # Show file info
+        st.info(f"Processing {file_ext.upper()} file: {file_size_mb:.1f} MB")
 
-        # Handle large files - try enhanced parsing
-        if file_size_mb > 10:
-            st.info(f"Large file ({file_size_mb:.1f} MB) - Using enhanced parser...")
+        # Handle large files with streaming and memory optimization
+        if file_size_mb > 5:  # Lower threshold for better handling
+            st.info(f"Large file ({file_size_mb:.1f} MB) - Optimizing for size...")
+            
+            # Memory optimization for large files
+            import gc
+            gc.collect()
+            
             try:
-                with tempfile.NamedTemporaryFile(suffix='.dwg', delete=False) as tmp_file:
-                    tmp_file.write(file_bytes)
+                # Stream write to temp file to avoid memory issues
+                with tempfile.NamedTemporaryFile(suffix=f'.{file_ext}', delete=False) as tmp_file:
+                    # Write in chunks to avoid memory overflow
+                    chunk_size = 1024 * 1024  # 1MB chunks
+                    for i in range(0, len(file_bytes), chunk_size):
+                        chunk = file_bytes[i:i + chunk_size]
+                        tmp_file.write(chunk)
                     tmp_path = tmp_file.name
                 
-                enhanced_parser = EnhancedDWGParser()
-                result = enhanced_parser.parse_file(tmp_path)
-                
-                if result and result.get('zones') and len(result['zones']) > 0:
-                    zones = result['zones']
-                    st.success(f"✅ Parsed {len(zones)} zones from large file using {result.get('parsing_method')}")
+                # Use appropriate parser based on file extension
+                if file_ext == 'dxf':
+                    # DXF files - use ezdxf directly for better performance
+                    try:
+                        import ezdxf
+                        doc = ezdxf.readfile(tmp_path)
+                        zones = []
+                        
+                        # Extract entities efficiently
+                        entity_count = 0
+                        for entity in doc.modelspace():
+                            entity_count += 1
+                            if entity_count > 10000:  # Limit for performance
+                                break
+                                
+                            if entity.dxftype() in ['LWPOLYLINE', 'POLYLINE']:
+                                if hasattr(entity, 'get_points'):
+                                    try:
+                                        points = list(entity.get_points())
+                                        if len(points) >= 3:
+                                            zone = {
+                                                'id': len(zones),
+                                                'points': [(p[0], p[1]) for p in points[:50]],  # Limit points
+                                                'area': abs(sum((points[i][0] * points[i+1][1] - points[i+1][0] * points[i][1]) 
+                                                              for i in range(len(points)-1)) / 2),
+                                                'zone_type': 'Room',
+                                                'layer': getattr(entity.dxf, 'layer', '0')
+                                            }
+                                            zones.append(zone)
+                                    except:
+                                        continue
+                        
+                        if zones:
+                            st.success(f"✅ Parsed {len(zones)} zones from large DXF file")
+                        else:
+                            zones = RobustErrorHandler.create_default_zones(uploaded_file.name, "DXF fallback")
+                            st.info(f"📋 Created {len(zones)} demo zones for large DXF")
+                            
+                    except Exception as dxf_error:
+                        st.warning(f"DXF parsing issue: {str(dxf_error)[:50]}...")
+                        zones = RobustErrorHandler.create_default_zones(uploaded_file.name, "DXF error fallback")
+                        
                 else:
-                    zones = RobustErrorHandler.create_default_zones(uploaded_file.name, "Large file demo")
-                    st.info(f"📋 Using demo layout for large file: {len(zones)} zones")
+                    # DWG files - use enhanced parser
+                    enhanced_parser = EnhancedDWGParser()
+                    result = enhanced_parser.parse_file(tmp_path)
+                    
+                    if result and result.get('zones') and len(result['zones']) > 0:
+                        zones = result['zones']
+                        st.success(f"✅ Parsed {len(zones)} zones using {result.get('parsing_method')}")
+                    else:
+                        zones = RobustErrorHandler.create_default_zones(uploaded_file.name, "DWG fallback")
+                        st.info(f"📋 Created {len(zones)} demo zones for large DWG")
                 
+                # Cleanup
                 try:
                     os.unlink(tmp_path)
                 except:
                     pass
                     
-            except Exception:
-                zones = RobustErrorHandler.create_default_zones(uploaded_file.name, "Large file fallback")
-                st.warning(f"⚠️ Large file parsing failed, using demo layout")
+                # Memory cleanup
+                gc.collect()
+                    
+            except Exception as e:
+                st.error(f"Large file processing error: {str(e)[:100]}...")
+                zones = RobustErrorHandler.create_default_zones(uploaded_file.name, "Error recovery")
+                st.info(f"🔄 Created recovery layout with {len(zones)} zones")
             
             st.session_state.zones = zones
             st.session_state.file_loaded = True
@@ -875,22 +937,71 @@ def load_uploaded_file(uploaded_file):
             zones = None
             parsing_method = None
             
-            # Try enhanced parsing first
+            # Try optimized parsing first
             try:
-                # Save to temp file for enhanced parser
-                with tempfile.NamedTemporaryFile(suffix='.dwg', delete=False) as tmp_file:
+                # Memory optimization
+                import gc
+                gc.collect()
+                
+                # Save to temp file with proper extension
+                with tempfile.NamedTemporaryFile(suffix=f'.{file_ext}', delete=False) as tmp_file:
                     tmp_file.write(file_bytes)
                     tmp_path = tmp_file.name
                 
-                # Use enhanced parser
-                enhanced_parser = EnhancedDWGParser()
-                result = enhanced_parser.parse_file(tmp_path)
+                zones = None
+                parsing_method = 'unknown'
                 
-                if result and result.get('zones') and len(result['zones']) > 0:
-                    zones = result['zones']
-                    parsing_method = result.get('parsing_method', 'enhanced')
-                    st.success(f"✅ Parsed {len(zones)} real zones from {uploaded_file.name} using {parsing_method}")
-                else:
+                # Try DXF-specific parsing first for DXF files
+                if file_ext == 'dxf':
+                    try:
+                        import ezdxf
+                        doc = ezdxf.readfile(tmp_path)
+                        zones = []
+                        
+                        for entity in doc.modelspace():
+                            if entity.dxftype() in ['LWPOLYLINE', 'POLYLINE']:
+                                if hasattr(entity, 'get_points'):
+                                    try:
+                                        points = list(entity.get_points())
+                                        if len(points) >= 3:
+                                            # Calculate area using shoelace formula
+                                            area = 0
+                                            for i in range(len(points)):
+                                                j = (i + 1) % len(points)
+                                                area += points[i][0] * points[j][1]
+                                                area -= points[j][0] * points[i][1]
+                                            area = abs(area) / 2
+                                            
+                                            zone = {
+                                                'id': len(zones),
+                                                'points': [(p[0], p[1]) for p in points],
+                                                'area': area,
+                                                'zone_type': 'Room',
+                                                'layer': getattr(entity.dxf, 'layer', '0')
+                                            }
+                                            zones.append(zone)
+                                    except:
+                                        continue
+                        
+                        if zones:
+                            parsing_method = 'ezdxf_direct'
+                            st.success(f"✅ Parsed {len(zones)} zones from DXF using direct ezdxf")
+                    except Exception as dxf_error:
+                        zones = None
+                        st.info(f"Direct DXF parsing failed, trying enhanced parser...")
+                
+                # If DXF direct parsing failed or it's a DWG file, use enhanced parser
+                if not zones:
+                    enhanced_parser = EnhancedDWGParser()
+                    result = enhanced_parser.parse_file(tmp_path)
+                    
+                    if result and result.get('zones') and len(result['zones']) > 0:
+                        zones = result['zones']
+                        parsing_method = result.get('parsing_method', 'enhanced')
+                        st.success(f"✅ Parsed {len(zones)} zones using enhanced parser ({parsing_method})")
+                
+                # Final fallback
+                if not zones:
                     zones = RobustErrorHandler.create_default_zones(uploaded_file.name, f"Fallback for {uploaded_file.name}")
                     parsing_method = 'fallback_demo'
                     st.info(f"📋 Using demo layout: {len(zones)} zones for {uploaded_file.name}")
@@ -900,6 +1011,9 @@ def load_uploaded_file(uploaded_file):
                     os.unlink(tmp_path)
                 except:
                     pass
+                
+                # Memory cleanup
+                gc.collect()
                     
             except Exception as parse_error:
                 zones = RobustErrorHandler.create_default_zones(uploaded_file.name, f"Error fallback for {uploaded_file.name}")
