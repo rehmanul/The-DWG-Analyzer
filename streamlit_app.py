@@ -46,43 +46,37 @@ from src.optimization import PlacementOptimizer
 from src.database import DatabaseManager
 import os
 
-# Configure PostgreSQL
-os.environ['DATABASE_URL'] = 'postgresql://yang:nNTm6Q4un1aF25fmVvl7YqSzWffyznIe@dpg-d0t3rlili9vc739k84gg-a.oregon-postgres.render.com/dg4u_tiktok_bot'
+# Configure PostgreSQL (use environment variable or fallback to SQLite)
+if 'DATABASE_URL' not in os.environ:
+    os.environ['DATABASE_URL'] = 'sqlite:///dwg_analyzer.db'
 from src.ai_integration import GeminiAIAnalyzer
 from src.construction_planner import ConstructionPlanner
 from display_construction_plans import display_construction_plans
 from src.advanced_visualization import AdvancedVisualizer
 
-# Import professional UI components (with fallback)
-try:
-    from professional_ui import ProfessionalUI, DataVisualization
-    PROFESSIONAL_UI_AVAILABLE = True
-except ImportError:
-    PROFESSIONAL_UI_AVAILABLE = False
-    logger.warning("Professional UI components not available, using fallback")
-    # Create fallback classes
-    class ProfessionalUI:
-        @staticmethod
-        def render_header():
-            st.title("AI Architectural Space Analyzer PRO")
+# Professional UI components (simplified to avoid warnings)
+class ProfessionalUI:
+    @staticmethod
+    def render_header():
+        st.title("AI Architectural Space Analyzer PRO")
 
-        @staticmethod
-        def render_metrics_dashboard(zones, analysis_results, placement_results):
-            st.subheader("Analysis Metrics")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Zones Detected", len(zones))
-            with col2:
-                total_area = sum(zone.get('area', 0) for zone in zones)
-                st.metric("Total Area", f"{total_area:,.0f} sq ft")
-            with col3:
-                room_types = len(set(result.get('room_type', 'Unknown') for result in analysis_results.values()))
-                st.metric("Room Types", room_types)
+    @staticmethod
+    def render_metrics_dashboard(zones, analysis_results, placement_results):
+        st.subheader("Analysis Metrics")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Zones Detected", len(zones))
+        with col2:
+            total_area = sum(zone.get('area', 0) for zone in zones)
+            st.metric("Total Area", f"{total_area:,.0f} sq ft")
+        with col3:
+            room_types = len(set(result.get('room_type', 'Unknown') for result in analysis_results.values()))
+            st.metric("Room Types", room_types)
 
-    class DataVisualization:
-        @staticmethod
-        def create_zone_analysis_chart(zones, analysis_results):
-            return None
+class DataVisualization:
+    @staticmethod
+    def create_zone_analysis_chart(zones, analysis_results):
+        return None
 
 # Import advanced features with fallbacks
 ADVANCED_FEATURES_AVAILABLE = False
@@ -490,7 +484,7 @@ def display_integrated_control_panel(components):
         uploaded_file = st.file_uploader(
             "Select your architectural drawing (DWG/DXF format)",
             type=['dwg', 'dxf'],
-            help="Upload a DWG or DXF file to analyze. Maximum file size: 190 MB. Native DWG support included.",
+            help="Upload a DWG or DXF file to analyze. Maximum file size: 50 MB for web deployment.",
             key="main_file_uploader",
             accept_multiple_files=False)
 
@@ -498,14 +492,14 @@ def display_integrated_control_panel(components):
             # Validate file immediately
             try:
                 file_size_mb = uploaded_file.size / (1024 * 1024)
-                if file_size_mb > 190:
-                    st.error(f"⚠️ File too large: {file_size_mb:.1f} MB. Maximum allowed: 190 MB")
+                if file_size_mb > 50:
+                    st.error(f"⚠️ File too large: {file_size_mb:.1f} MB. Maximum allowed: 50 MB")
                     st.stop()
 
                 col_a, col_b = st.columns([2, 1])
                 with col_a:
                     st.write(f"📄 **{uploaded_file.name}** ({file_size_mb:.1f} MB)")
-                    if file_size_mb > 50:
+                    if file_size_mb > 20:
                         st.warning("⏰ Large file detected. Processing may take longer.")
 
                 with col_b:
@@ -810,6 +804,11 @@ def load_uploaded_file(uploaded_file):
         if file_ext not in ['dwg', 'dxf']:
             st.error(f"Unsupported file format: {file_ext}. Please upload DWG or DXF files only.")
             return None
+        
+        # Reduce file size limit for tunnel compatibility
+        if len(file_bytes) > 50 * 1024 * 1024:  # 50MB limit
+            st.error(f"File too large: {file_size_mb:.1f} MB. Maximum allowed: 50 MB for web deployment.")
+            return None
 
         # Check file size and read with memory optimization
         try:
@@ -828,7 +827,7 @@ def load_uploaded_file(uploaded_file):
         st.info(f"Processing {file_ext.upper()} file: {file_size_mb:.1f} MB")
 
         # Handle large files with streaming and memory optimization
-        if file_size_mb > 5:  # Lower threshold for better handling
+        if file_size_mb > 10:  # Threshold for large file handling
             st.info(f"Large file ({file_size_mb:.1f} MB) - Optimizing for size...")
             
             # Memory optimization for large files
