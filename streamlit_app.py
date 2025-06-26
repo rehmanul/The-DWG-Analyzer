@@ -496,10 +496,13 @@ def display_integrated_control_panel(components):
             • No size restrictions
             
             **Tips for Large Files:**
-            • Use CAD software to compress DXF files
+            • Use our file compressor: `python -m streamlit run compress_dwg.py`
             • Remove unnecessary layers/entities
             • Split complex drawings into sections
             """)
+            
+            if st.button("Run File Compressor"):
+                st.info("To run the compressor, execute this command in your terminal:\n\n`python -m streamlit run compress_dwg.py`")
 
         uploaded_file = st.file_uploader(
             "📤 Select DWG/DXF File (Max: 10 MB)",
@@ -516,10 +519,12 @@ def display_integrated_control_panel(components):
                     st.error(f"⚠️ File too large: {file_size_mb:.1f} MB. Maximum allowed: 10 MB")
                     st.markdown("""
                     **💡 Solutions:**
-                    • **Compress file**: Use CAD software to reduce file size
+                    • **Use our compressor**: Run `python -m streamlit run compress_dwg.py`
                     • **Run locally**: Download and run locally for files up to 190 MB
                     • **Split drawing**: Divide into smaller sections
                     """)
+                    
+                    st.info("💾 See README_TUNNEL.md for detailed instructions on handling large files.")
                     st.stop()
 
                 col_a, col_b = st.columns([2, 1])
