@@ -478,36 +478,59 @@ def display_integrated_control_panel(components):
     with col1:
         st.subheader("📁 Upload DWG/DXF File")
         
-        # File size info for web deployment
-        st.warning(
-            "⚠️ **Web Version Limit**: Maximum 10 MB file size. For larger files, run locally."
-        )
+        # Dynamic file size info based on deployment
+        is_local = 'localhost' in str(st.get_option('browser.serverAddress')) or st.get_option('server.port') == 5001
+        max_size_mb = 190 if is_local else 10
+        
+        if is_local:
+            st.success(
+                f"✅ **Local Version**: Maximum {max_size_mb} MB file size supported."
+            )
+        else:
+            st.warning(
+                f"⚠️ **Web Version Limit**: Maximum {max_size_mb} MB file size. For larger files, run locally."
+            )
         
         with st.expander("📏 File Size Guidelines"):
-            st.markdown("""
-            **Web Deployment (Current):**
-            • Maximum: 10 MB
-            • Recommended: 1-5 MB
-            • Best performance: Under 2 MB
+            is_local = 'localhost' in str(st.get_option('browser.serverAddress')) or st.get_option('server.port') == 5001
             
-            **Local Deployment:**
-            • Maximum: 190 MB
-            • Full feature support
-            • No size restrictions
-            
-            **Tips for Large Files:**
-            • Use our file compressor: `python -m streamlit run compress_dwg.py`
-            • Remove unnecessary layers/entities
-            • Split complex drawings into sections
-            """)
-            
-            if st.button("Run File Compressor"):
-                st.info("To run the compressor, execute this command in your terminal:\n\n`python -m streamlit run compress_dwg.py`")
+            if is_local:
+                st.markdown("""
+                **Local Deployment (Current):**
+                • Maximum: 190 MB
+                • Recommended: Under 50 MB for best performance
+                • Full feature support
+                • No tunnel restrictions
+                """)
+            else:
+                st.markdown("""
+                **Web Deployment (Current):**
+                • Maximum: 10 MB
+                • Recommended: 1-5 MB
+                • Best performance: Under 2 MB
+                
+                **Local Deployment:**
+                • Maximum: 190 MB
+                • Full feature support
+                • No size restrictions
+                
+                **Tips for Large Files:**
+                • Use our file compressor: `python -m streamlit run compress_dwg.py`
+                • Remove unnecessary layers/entities
+                • Split complex drawings into sections
+                """)
+                
+                if st.button("Run File Compressor"):
+                    st.info("To run the compressor, execute this command in your terminal:\n\n`python -m streamlit run compress_dwg.py`")
 
+        # Dynamic file uploader text
+        is_local = 'localhost' in str(st.get_option('browser.serverAddress')) or st.get_option('server.port') == 5001
+        max_size_mb = 190 if is_local else 10
+        
         uploaded_file = st.file_uploader(
-            "📤 Select DWG/DXF File (Max: 10 MB)",
+            f"📤 Select DWG/DXF File (Max: {max_size_mb} MB)",
             type=['dwg', 'dxf'],
-            help="Web deployment limit: 10 MB. Run locally for larger files up to 190 MB.",
+            help=f"{'Local deployment' if is_local else 'Web deployment'} limit: {max_size_mb} MB.",
             key="main_file_uploader",
             accept_multiple_files=False)
 
@@ -515,22 +538,30 @@ def display_integrated_control_panel(components):
             # Validate file immediately
             try:
                 file_size_mb = uploaded_file.size / (1024 * 1024)
-                if file_size_mb > 10:
-                    st.error(f"⚠️ File too large: {file_size_mb:.1f} MB. Maximum allowed: 10 MB")
-                    st.markdown("""
-                    **💡 Solutions:**
-                    • **Use our compressor**: Run `python -m streamlit run compress_dwg.py`
-                    • **Run locally**: Download and run locally for files up to 190 MB
-                    • **Split drawing**: Divide into smaller sections
-                    """)
-                    
-                    st.info("💾 See README_TUNNEL.md for detailed instructions on handling large files.")
+                # Dynamic file size check
+                is_local = 'localhost' in str(st.get_option('browser.serverAddress')) or st.get_option('server.port') == 5001
+                max_size_mb = 190 if is_local else 10
+                
+                if file_size_mb > max_size_mb:
+                    st.error(f"⚠️ File too large: {file_size_mb:.1f} MB. Maximum allowed: {max_size_mb} MB")
+                    if not is_local:
+                        st.markdown("""
+                        **💡 Solutions:**
+                        • **Use our compressor**: Run `python -m streamlit run compress_dwg.py`
+                        • **Run locally**: Download and run locally for files up to 190 MB
+                        • **Split drawing**: Divide into smaller sections
+                        """)
+                        st.info("💾 See README_TUNNEL.md for detailed instructions on handling large files.")
                     st.stop()
 
                 col_a, col_b = st.columns([2, 1])
                 with col_a:
                     st.write(f"📄 **{uploaded_file.name}** ({file_size_mb:.1f} MB)")
-                    if file_size_mb > 5:
+                    # Dynamic warning based on deployment
+                    is_local = 'localhost' in str(st.get_option('browser.serverAddress')) or st.get_option('server.port') == 5001
+                    warning_threshold = 50 if is_local else 5
+                    
+                    if file_size_mb > warning_threshold:
                         st.warning("⏰ Large file detected. Processing may take longer.")
 
                 with col_b:
@@ -836,10 +867,17 @@ def load_uploaded_file(uploaded_file):
             st.error(f"Unsupported file format: {file_ext}. Please upload DWG or DXF files only.")
             return None
         
-        # Reduce file size limit for tunnel compatibility
-        if len(file_bytes) > 10 * 1024 * 1024:  # 10MB limit for tunnels
-            st.error(f"File too large: {file_size_mb:.1f} MB. Maximum allowed: 10 MB for web deployment.")
-            st.info("💡 For larger files, run the app locally or use file compression.")
+        # Dynamic file size limit based on deployment
+        is_local = 'localhost' in st.get_option('browser.serverAddress') or '127.0.0.1' in st.get_option('browser.serverAddress') or st.get_option('server.port') == 5001
+        max_size_mb = 190 if is_local else 10
+        max_size_bytes = max_size_mb * 1024 * 1024
+        
+        if len(file_bytes) > max_size_bytes:
+            if is_local:
+                st.error(f"File too large: {file_size_mb:.1f} MB. Maximum allowed: {max_size_mb} MB.")
+            else:
+                st.error(f"File too large: {file_size_mb:.1f} MB. Maximum allowed: {max_size_mb} MB for web deployment.")
+                st.info("💡 For larger files, run the app locally or use file compression.")
             return None
 
         # Check file size and read with memory optimization
