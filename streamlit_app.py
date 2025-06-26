@@ -989,7 +989,7 @@ def display_main_interface(components):
     if st.session_state.advanced_mode:
         # Advanced interface with more tabs
         tabs = st.tabs([
-            "Analysis Dashboard", "Interactive Visualization",
+            "Analysis Dashboard", "Interactive Visualization", "Construction Plans",
             "Advanced Statistics", "BIM Integration", "Furniture Catalog",
             "Database & Projects", "CAD Export", "Settings"
         ])
@@ -999,16 +999,18 @@ def display_main_interface(components):
         with tabs[1]:
             display_enhanced_visualization(components)
         with tabs[2]:
-            display_advanced_statistics(components)
+            display_construction_plans(components)
         with tabs[3]:
-            display_bim_integration(components)
+            display_advanced_statistics(components)
         with tabs[4]:
-            display_furniture_catalog(components)
+            display_bim_integration(components)
         with tabs[5]:
-            display_database_interface(components)
+            display_furniture_catalog(components)
         with tabs[6]:
-            display_cad_export_interface(components)
+            display_database_interface(components)
         with tabs[7]:
+            display_cad_export_interface(components)
+        with tabs[8]:
             display_advanced_settings(components)
     else:
         # Standard interface using full width
