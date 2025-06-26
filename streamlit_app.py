@@ -51,6 +51,7 @@ os.environ['DATABASE_URL'] = 'postgresql://yang:nNTm6Q4un1aF25fmVvl7YqSzWffyznIe
 from src.ai_integration import GeminiAIAnalyzer
 from src.construction_planner import ConstructionPlanner
 from display_construction_plans import display_construction_plans
+from src.advanced_visualization import AdvancedVisualizer
 
 # Import professional UI components (with fallback)
 try:
@@ -2276,37 +2277,58 @@ def display_analysis_results():
 
 
 def display_plan_visualization():
-    """Display plan visualization"""
+    """Display advanced plan visualization"""
     if not st.session_state.zones:
         st.info("Load a DWG file to see visualization")
         return
 
-    visualizer = PlanVisualizer()
+    from src.advanced_visualization import AdvancedVisualizer
+    visualizer = AdvancedVisualizer()
 
-    # Visualization options
-    col1, col2 = st.columns([3, 1])
-
-    with col2:
-        st.subheader("🎨 Display Options")
-        show_zones = st.checkbox("Show Zones", value=True, key="plan_viz_zones_display")
-        show_boxes = st.checkbox("Show Box Placements", value=True, key="plan_viz_boxes_display") 
-        show_labels = st.checkbox("Show Labels", value=True, key="plan_viz_labels_display")
-        color_by_type = st.checkbox("Color by Room Type", value=True, key="plan_viz_color_display")
-
+    # Advanced visualization controls
+    st.subheader("🎨 Professional Visualization Controls")
+    
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        # Generate visualization
-        if st.session_state.analysis_results:
-            fig = visualizer.create_interactive_plot(
-                st.session_state.zones,
-                st.session_state.analysis_results,
-                show_zones=show_zones,
-                show_boxes=show_boxes,
-                show_labels=show_labels,
-                color_by_type=color_by_type)
-        else:
-            fig = visualizer.create_basic_plot(st.session_state.zones)
+        view_mode = st.selectbox("View Mode", ["2D Professional", "3D Advanced Model"], key="adv_view_mode")
+    with col2:
+        show_furniture = st.checkbox("Show Furniture", value=True, key="adv_show_furniture")
+    with col3:
+        show_dimensions = st.checkbox("Show Dimensions", value=True, key="adv_show_dimensions")
+    with col4:
+        wall_height = st.slider("Wall Height (m)", 2.5, 4.0, 3.0, 0.1, key="adv_wall_height")
 
-        st.plotly_chart(fig, use_container_width=True)
+    # Generate advanced visualization
+    if view_mode == "3D Advanced Model":
+        fig = visualizer.create_advanced_3d_model(
+            st.session_state.zones,
+            st.session_state.analysis_results,
+            show_furniture=show_furniture,
+            wall_height=wall_height
+        )
+    else:
+        fig = visualizer.create_professional_2d_plan(
+            st.session_state.zones,
+            st.session_state.analysis_results,
+            show_furniture=show_furniture,
+            show_dimensions=show_dimensions
+        )
+
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Additional visualization options
+    with st.expander("📊 Visualization Analytics"):
+        if st.session_state.zones:
+            total_area = sum(zone.get('area', 0) for zone in st.session_state.zones)
+            avg_room_size = total_area / len(st.session_state.zones)
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Floor Area", f"{total_area:.1f} m²")
+            with col2:
+                st.metric("Average Room Size", f"{avg_room_size:.1f} m²")
+            with col3:
+                st.metric("Total Rooms", len(st.session_state.zones))
 
 
 def display_statistics():
