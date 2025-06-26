@@ -1379,36 +1379,108 @@ def display_furniture_catalog(components):
 
 
 def generate_simple_dxf(zones, include_furniture=True, include_dimensions=True):
-    """Generate simple DXF content"""
-    dxf_lines = [
+    """Generate high-quality DXF content"""
+    dxf_content = [
+        "0\nSECTION\n2\nHEADER\n",
+        "9\n$ACADVER\n1\nAC1015\n",  # AutoCAD 2000
+        "0\nENDSEC\n",
+        "0\nSECTION\n2\nTABLES\n",
+        "0\nTABLE\n2\nLAYER\n70\n1\n",
+        "0\nLAYER\n2\nWALLS\n70\n0\n6\nCONTINUOUS\n62\n1\n",
+        "0\nLAYER\n2\nFURNITURE\n70\n0\n6\nCONTINUOUS\n62\n3\n",
+        "0\nLAYER\n2\nDIMENSIONS\n70\n0\n6\nCONTINUOUS\n62\n2\n",
+        "0\nENDTAB\n0\nENDSEC\n",
         "0\nSECTION\n2\nENTITIES\n"
     ]
     
+    # Add room boundaries
     for i, zone in enumerate(zones):
         points = zone.get('points', [])
         if len(points) >= 3:
-            # Add polyline for room boundary
-            dxf_lines.append("0\nLWPOLYLINE\n8\n0\n")
-            dxf_lines.append(f"90\n{len(points)}\n")
+            # Closed polyline for room
+            dxf_content.extend([
+                "0\nLWPOLYLINE\n",
+                "8\nWALLS\n",  # Layer
+                "62\n1\n",     # Color (red)
+                f"90\n{len(points)}\n",  # Number of vertices
+                "70\n1\n"      # Closed flag
+            ])
             
             for point in points:
-                dxf_lines.append(f"10\n{point[0]}\n20\n{point[1]}\n")
+                dxf_content.extend([
+                    f"10\n{point[0]:.3f}\n",  # X coordinate
+                    f"20\n{point[1]:.3f}\n"   # Y coordinate
+                ])
+            
+            # Add room label as text
+            centroid = zone.get('centroid', (sum(p[0] for p in points)/len(points), sum(p[1] for p in points)/len(points)))
+            room_name = zone.get('zone_type', f'Room {i+1}')
+            dxf_content.extend([
+                "0\nTEXT\n",
+                "8\nWALLS\n",
+                f"10\n{centroid[0]:.3f}\n",
+                f"20\n{centroid[1]:.3f}\n",
+                "40\n2.5\n",  # Text height
+                f"1\n{room_name}\n"
+            ])
+            
+            # Add dimensions if requested
+            if include_dimensions:
+                area = zone.get('area', 0)
+                dxf_content.extend([
+                    "0\nTEXT\n",
+                    "8\nDIMENSIONS\n",
+                    f"10\n{centroid[0]:.3f}\n",
+                    f"20\n{centroid[1] - 3:.3f}\n",
+                    "40\n1.5\n",
+                    f"1\n{area:.1f} m²\n"
+                ])
     
-    dxf_lines.append("0\nENDSEC\n0\nEOF\n")
-    return ''.join(dxf_lines)
+    # Add furniture if requested
+    if include_furniture and st.session_state.analysis_results:
+        placements = st.session_state.analysis_results.get('placements', {})
+        for zone_name, furniture_list in placements.items():
+            for furniture in furniture_list:
+                pos = furniture.get('position', (0, 0))
+                size = furniture.get('size', (2, 1.5))
+                
+                # Furniture rectangle
+                corners = [
+                    (pos[0] - size[0]/2, pos[1] - size[1]/2),
+                    (pos[0] + size[0]/2, pos[1] - size[1]/2),
+                    (pos[0] + size[0]/2, pos[1] + size[1]/2),
+                    (pos[0] - size[0]/2, pos[1] + size[1]/2)
+                ]
+                
+                dxf_content.extend([
+                    "0\nLWPOLYLINE\n",
+                    "8\nFURNITURE\n",
+                    "62\n3\n",  # Color (green)
+                    "90\n4\n",   # 4 vertices
+                    "70\n1\n"    # Closed
+                ])
+                
+                for corner in corners:
+                    dxf_content.extend([
+                        f"10\n{corner[0]:.3f}\n",
+                        f"20\n{corner[1]:.3f}\n"
+                    ])
+    
+    dxf_content.extend(["0\nENDSEC\n", "0\nEOF\n"])
+    return ''.join(dxf_content)
 
 def generate_simple_svg(zones, include_furniture=True):
-    """Generate simple SVG content"""
+    """Generate high-quality SVG content"""
     if not zones:
-        return '<svg></svg>'
+        return '<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><text x="200" y="150" text-anchor="middle">No zones to export</text></svg>'
     
-    # Calculate bounds
+    # Calculate bounds with padding
     all_points = []
     for zone in zones:
         all_points.extend(zone.get('points', []))
     
     if not all_points:
-        return '<svg></svg>'
+        return '<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><text x="200" y="150" text-anchor="middle">No valid points</text></svg>'
     
     min_x = min(p[0] for p in all_points)
     max_x = max(p[0] for p in all_points)
@@ -1417,18 +1489,72 @@ def generate_simple_svg(zones, include_furniture=True):
     
     width = max_x - min_x
     height = max_y - min_y
+    padding = 50
+    scale = min(800 / (width + 2*padding), 600 / (height + 2*padding)) if width > 0 and height > 0 else 1
     
-    svg_content = f'<svg width="{width + 100}" height="{height + 100}" xmlns="http://www.w3.org/2000/svg">\n'
+    svg_width = int((width + 2*padding) * scale)
+    svg_height = int((height + 2*padding) * scale)
     
-    for zone in zones:
+    svg_content = f'''<svg width="{svg_width}" height="{svg_height}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {svg_width} {svg_height}">
+'''
+    svg_content += '''<defs>
+<style>
+.room { fill: rgba(52, 152, 219, 0.1); stroke: #2C3E50; stroke-width: 2; }
+.furniture { fill: rgba(243, 156, 18, 0.6); stroke: #F39C12; stroke-width: 1.5; }
+.room-label { font-family: Arial, sans-serif; font-size: 12px; text-anchor: middle; fill: #2C3E50; font-weight: bold; }
+.area-label { font-family: Arial, sans-serif; font-size: 10px; text-anchor: middle; fill: #7F8C8D; }
+</style>
+</defs>
+'''
+    
+    # Add rooms
+    for i, zone in enumerate(zones):
         points = zone.get('points', [])
         if len(points) >= 3:
-            path_data = f"M {points[0][0] - min_x + 50} {points[0][1] - min_y + 50}"
-            for point in points[1:]:
-                path_data += f" L {point[0] - min_x + 50} {point[1] - min_y + 50}"
+            # Transform points
+            transformed_points = []
+            for point in points:
+                x = (point[0] - min_x + padding) * scale
+                y = (point[1] - min_y + padding) * scale
+                transformed_points.append((x, y))
+            
+            # Create path
+            path_data = f"M {transformed_points[0][0]:.1f} {transformed_points[0][1]:.1f}"
+            for point in transformed_points[1:]:
+                path_data += f" L {point[0]:.1f} {point[1]:.1f}"
             path_data += " Z"
             
-            svg_content += f'<path d="{path_data}" fill="none" stroke="black" stroke-width="2"/>\n'
+            svg_content += f'<path d="{path_data}" class="room"/>\n'
+            
+            # Add room label
+            centroid = zone.get('centroid', (sum(p[0] for p in points)/len(points), sum(p[1] for p in points)/len(points)))
+            label_x = (centroid[0] - min_x + padding) * scale
+            label_y = (centroid[1] - min_y + padding) * scale
+            
+            room_name = zone.get('zone_type', f'Room {i+1}')
+            area = zone.get('area', 0)
+            
+            svg_content += f'<text x="{label_x:.1f}" y="{label_y:.1f}" class="room-label">{room_name}</text>\n'
+            svg_content += f'<text x="{label_x:.1f}" y="{label_y + 15:.1f}" class="area-label">{area:.1f} m²</text>\n'
+    
+    # Add furniture if requested
+    if include_furniture and st.session_state.analysis_results:
+        placements = st.session_state.analysis_results.get('placements', {})
+        for zone_name, furniture_list in placements.items():
+            for furniture in furniture_list:
+                pos = furniture.get('position', (0, 0))
+                size = furniture.get('size', (2, 1.5))
+                
+                # Transform furniture position
+                x = (pos[0] - size[0]/2 - min_x + padding) * scale
+                y = (pos[1] - size[1]/2 - min_y + padding) * scale
+                w = size[0] * scale
+                h = size[1] * scale
+                
+                svg_content += f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" class="furniture"/>\n'
+    
+    # Add title
+    svg_content += f'<text x="{svg_width/2}" y="25" style="font-family: Arial, sans-serif; font-size: 16px; text-anchor: middle; fill: #2C3E50; font-weight: bold;">Architectural Plan Export</text>\n'
     
     svg_content += '</svg>'
     return svg_content
@@ -1441,45 +1567,58 @@ def display_cad_export_interface(components):
         st.info("Run analysis first to enable CAD export")
         return
 
-    # Export options
-    col1, col2 = st.columns(2)
-
+    st.subheader("📐 Professional CAD Export")
+    
+    # Export options in a cleaner layout
+    col1, col2, col3 = st.columns(3)
+    
     with col1:
-        st.subheader("Export Formats")
-        export_dxf = st.checkbox("DXF (AutoCAD)", value=True, key="export_dxf_check")
-        export_svg = st.checkbox("SVG (Web)", value=True, key="export_svg_check")
-
+        st.write("**Export Formats:**")
+        export_dxf = st.checkbox("🔧 DXF (AutoCAD Compatible)", value=True, key="export_dxf_check")
+        export_svg = st.checkbox("🖼️ SVG (High Quality Vector)", value=True, key="export_svg_check")
+    
     with col2:
-        st.subheader("Drawing Options")
-        include_dimensions = st.checkbox("Include Dimensions", value=True, key="export_include_dims")
-        include_furniture = st.checkbox("Include Furniture", value=True, key="export_include_furniture")
+        st.write("**Content Options:**")
+        include_dimensions = st.checkbox("📏 Room Dimensions", value=True, key="export_include_dims")
+        include_furniture = st.checkbox("🪑 Furniture Layout", value=True, key="export_include_furniture")
+    
+    with col3:
+        st.write("**Export Quality:**")
+        st.info("✅ Professional Grade\n✅ CAD Compatible\n✅ Scalable Vector")
 
     if st.button("Generate CAD Export", type="primary", key="gen_cad_export_btn"):
         try:
-            # Simple export without external CAD exporter
-            if export_dxf:
-                # Generate simple DXF content
-                dxf_content = generate_simple_dxf(st.session_state.zones, include_furniture, include_dimensions)
-                st.download_button(
-                    "Download DXF File", 
-                    data=dxf_content,
-                    file_name="architectural_plan.dxf",
-                    mime="application/octet-stream",
-                    key="download_dxf_btn"
-                )
+            # Professional CAD export
+            col1, col2 = st.columns(2)
             
-            if export_svg:
-                # Generate simple SVG content
-                svg_content = generate_simple_svg(st.session_state.zones, include_furniture)
-                st.download_button(
-                    "Download SVG Preview", 
-                    data=svg_content,
-                    file_name="plan_preview.svg",
-                    mime="image/svg+xml",
-                    key="download_svg_btn"
-                )
-                
-            st.success("CAD files generated successfully!")
+            with col1:
+                if export_dxf:
+                    dxf_content = generate_simple_dxf(st.session_state.zones, include_furniture, include_dimensions)
+                    st.download_button(
+                        "📥 Download DXF File", 
+                        data=dxf_content,
+                        file_name=f"architectural_plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.dxf",
+                        mime="application/octet-stream",
+                        key="download_dxf_btn",
+                        use_container_width=True
+                    )
+                    st.success("✅ DXF Ready - AutoCAD Compatible")
+            
+            with col2:
+                if export_svg:
+                    svg_content = generate_simple_svg(st.session_state.zones, include_furniture)
+                    st.download_button(
+                        "📥 Download SVG File", 
+                        data=svg_content,
+                        file_name=f"architectural_plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.svg",
+                        mime="image/svg+xml",
+                        key="download_svg_btn",
+                        use_container_width=True
+                    )
+                    st.success("✅ SVG Ready - High Quality Vector")
+            
+            if not export_dxf and not export_svg:
+                st.warning("Please select at least one export format.")
             
         except Exception as e:
             st.error(f"Error generating CAD files: {str(e)}")
