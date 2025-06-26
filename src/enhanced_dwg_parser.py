@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 import ezdxf
 from src.robust_error_handler import RobustErrorHandler
+from src.enhanced_zone_detector import EnhancedZoneDetector
 
 logger = logging.getLogger(__name__)
 
@@ -38,29 +39,104 @@ class EnhancedDWGParser:
         return self._create_intelligent_fallback(file_path)
 
     def _parse_with_ezdxf(self, file_path: str) -> Dict[str, Any]:
-        """Parse using ezdxf library"""
+        """Parse using ezdxf library with enhanced zone detection"""
         try:
             doc = ezdxf.readfile(file_path)
-            zones = []
-
+            entities = []
+            
+            # Extract all entities with metadata
             for entity in doc.modelspace():
-                if entity.dxftype() in ['LWPOLYLINE', 'POLYLINE']:
-                    zone = self._extract_zone_from_polyline(entity)
-                    if zone:
-                        zones.append(zone)
-                elif entity.dxftype() == 'CIRCLE':
-                    zone = self._extract_zone_from_circle(entity)
-                    if zone:
-                        zones.append(zone)
+                entity_data = self._extract_entity_data(entity)
+                if entity_data:
+                    entities.append(entity_data)
+            
+            # Use enhanced zone detector
+            from src.enhanced_zone_detector import EnhancedZoneDetector
+            zone_detector = EnhancedZoneDetector()
+            zones = zone_detector.detect_zones_from_entities(entities)
+            
+            # Convert to expected format
+            formatted_zones = []
+            for zone in zones:
+                formatted_zone = {
+                    'id': len(formatted_zones),
+                    'points': zone.get('points', []),
+                    'polygon': zone.get('points', []),
+                    'area': zone.get('area', 0),
+                    'centroid': zone.get('centroid', (0, 0)),
+                    'layer': zone.get('layer', '0'),
+                    'zone_type': zone.get('likely_room_type', 'Room'),
+                    'parsing_method': 'enhanced_detection'
+                }
+                formatted_zones.append(formatted_zone)
 
             return {
-                'zones': zones,
-                'parsing_method': 'ezdxf_enhanced',
-                'entity_count': len(list(doc.modelspace()))
+                'zones': formatted_zones,
+                'parsing_method': 'ezdxf_enhanced_detection',
+                'entity_count': len(entities)
             }
         except Exception as e:
-            raise Exception(f"ezdxf parsing failed: {e}")
+            raise Exception(f"ezdxf enhanced parsing failed: {e}")
 
+    def _extract_entity_data(self, entity) -> Optional[Dict]:
+        """Extract entity data for enhanced zone detection"""
+        try:
+            entity_data = {
+                'entity_type': entity.dxftype(),
+                'layer': getattr(entity.dxf, 'layer', '0')
+            }
+            
+            if entity.dxftype() in ['LWPOLYLINE', 'POLYLINE']:
+                points = []
+                if hasattr(entity, 'get_points'):
+                    try:
+                        point_list = list(entity.get_points())
+                        points = [(p[0], p[1]) for p in point_list if len(p) >= 2]
+                    except:
+                        pass
+                
+                entity_data.update({
+                    'points': points,
+                    'closed': getattr(entity.dxf, 'closed', False)
+                })
+                
+            elif entity.dxftype() == 'LINE':
+                start = getattr(entity.dxf, 'start', None)
+                end = getattr(entity.dxf, 'end', None)
+                if start and end:
+                    entity_data.update({
+                        'start_point': (start[0], start[1]),
+                        'end_point': (end[0], end[1])
+                    })
+                    
+            elif entity.dxftype() == 'CIRCLE':
+                center = getattr(entity.dxf, 'center', None)
+                radius = getattr(entity.dxf, 'radius', 0)
+                if center:
+                    entity_data.update({
+                        'center': (center[0], center[1]),
+                        'radius': radius
+                    })
+                    
+            elif entity.dxftype() == 'TEXT':
+                text = getattr(entity.dxf, 'text', '')
+                insert = getattr(entity.dxf, 'insert', None)
+                if insert:
+                    entity_data.update({
+                        'text': text,
+                        'insertion_point': (insert[0], insert[1])
+                    })
+                    
+            elif entity.dxftype() == 'HATCH':
+                # Basic hatch support
+                entity_data['boundary_paths'] = []
+                
+            return entity_data
+            
+        except Exception as e:
+            logger.warning(f"Failed to extract entity data: {e}")
+            return None
+    
     def _extract_zone_from_polyline(self, entity) -> Optional[Dict]:
         """Extract zone data from polyline entity"""
         try:
