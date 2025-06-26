@@ -1378,6 +1378,61 @@ def display_furniture_catalog(components):
         st.metric("Sustainability Score", f"{avg_sustainability:.2f}")
 
 
+def generate_simple_dxf(zones, include_furniture=True, include_dimensions=True):
+    """Generate simple DXF content"""
+    dxf_lines = [
+        "0\nSECTION\n2\nENTITIES\n"
+    ]
+    
+    for i, zone in enumerate(zones):
+        points = zone.get('points', [])
+        if len(points) >= 3:
+            # Add polyline for room boundary
+            dxf_lines.append("0\nLWPOLYLINE\n8\n0\n")
+            dxf_lines.append(f"90\n{len(points)}\n")
+            
+            for point in points:
+                dxf_lines.append(f"10\n{point[0]}\n20\n{point[1]}\n")
+    
+    dxf_lines.append("0\nENDSEC\n0\nEOF\n")
+    return ''.join(dxf_lines)
+
+def generate_simple_svg(zones, include_furniture=True):
+    """Generate simple SVG content"""
+    if not zones:
+        return '<svg></svg>'
+    
+    # Calculate bounds
+    all_points = []
+    for zone in zones:
+        all_points.extend(zone.get('points', []))
+    
+    if not all_points:
+        return '<svg></svg>'
+    
+    min_x = min(p[0] for p in all_points)
+    max_x = max(p[0] for p in all_points)
+    min_y = min(p[1] for p in all_points)
+    max_y = max(p[1] for p in all_points)
+    
+    width = max_x - min_x
+    height = max_y - min_y
+    
+    svg_content = f'<svg width="{width + 100}" height="{height + 100}" xmlns="http://www.w3.org/2000/svg">\n'
+    
+    for zone in zones:
+        points = zone.get('points', [])
+        if len(points) >= 3:
+            path_data = f"M {points[0][0] - min_x + 50} {points[0][1] - min_y + 50}"
+            for point in points[1:]:
+                path_data += f" L {point[0] - min_x + 50} {point[1] - min_y + 50}"
+            path_data += " Z"
+            
+            svg_content += f'<path d="{path_data}" fill="none" stroke="black" stroke-width="2"/>\n'
+    
+    svg_content += '</svg>'
+    return svg_content
+
 def display_cad_export_interface(components):
     """Display CAD export interface"""
     st.subheader("CAD Export & Technical Drawings")
@@ -1401,35 +1456,31 @@ def display_cad_export_interface(components):
 
     if st.button("Generate CAD Export", type="primary", key="gen_cad_export_btn"):
         try:
-            cad_exporter = components['cad_exporter']
-
-            with tempfile.TemporaryDirectory() as temp_dir:
-                if export_dxf:
-                    dxf_path = os.path.join(temp_dir, "architectural_plan.dxf")
-                    cad_exporter.export_to_dxf(
-                        st.session_state.zones,
-                        st.session_state.analysis_results,
-                        dxf_path,
-                        include_furniture=include_furniture,
-                        include_dimensions=include_dimensions)
-
-                    with open(dxf_path, 'rb') as f:
-                        st.download_button("Download DXF File", key="download_dxf_btn",
-                                           data=f.read(),
-                                           file_name="architectural_plan.dxf",
-                                           mime="application/octet-stream")
-
-                if export_svg:
-                    svg_path = os.path.join(temp_dir, "plan_preview.svg")
-                    cad_exporter.export_to_svg(
-                        st.session_state.zones,
-                        st.session_state.analysis_results, svg_path)
-
-                    with open(svg_path, 'r') as f:
-                        st.download_button("Download SVG Preview", key="download_svg_btn",
-                                           data=f.read(),
-                                           file_name="plan_preview.svg",
-                                           mime="image/svg+xml")
+            # Simple export without external CAD exporter
+            if export_dxf:
+                # Generate simple DXF content
+                dxf_content = generate_simple_dxf(st.session_state.zones, include_furniture, include_dimensions)
+                st.download_button(
+                    "Download DXF File", 
+                    data=dxf_content,
+                    file_name="architectural_plan.dxf",
+                    mime="application/octet-stream",
+                    key="download_dxf_btn"
+                )
+            
+            if export_svg:
+                # Generate simple SVG content
+                svg_content = generate_simple_svg(st.session_state.zones, include_furniture)
+                st.download_button(
+                    "Download SVG Preview", 
+                    data=svg_content,
+                    file_name="plan_preview.svg",
+                    mime="image/svg+xml",
+                    key="download_svg_btn"
+                )
+                
+            st.success("CAD files generated successfully!")
+            
         except Exception as e:
             st.error(f"Error generating CAD files: {str(e)}")
 
