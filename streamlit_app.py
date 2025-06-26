@@ -477,14 +477,34 @@ def display_integrated_control_panel(components):
 
     with col1:
         st.subheader("📁 Upload DWG/DXF File")
-        st.info(
-            "📋 **Enhanced Support:** Upload DWG or DXF files directly. The system supports multiple DWG formats with automatic conversion fallbacks."
+        
+        # File size info for web deployment
+        st.warning(
+            "⚠️ **Web Version Limit**: Maximum 10 MB file size. For larger files, run locally."
         )
+        
+        with st.expander("📏 File Size Guidelines"):
+            st.markdown("""
+            **Web Deployment (Current):**
+            • Maximum: 10 MB
+            • Recommended: 1-5 MB
+            • Best performance: Under 2 MB
+            
+            **Local Deployment:**
+            • Maximum: 190 MB
+            • Full feature support
+            • No size restrictions
+            
+            **Tips for Large Files:**
+            • Use CAD software to compress DXF files
+            • Remove unnecessary layers/entities
+            • Split complex drawings into sections
+            """)
 
         uploaded_file = st.file_uploader(
-            "Select your architectural drawing (DWG/DXF format)",
+            "📤 Select DWG/DXF File (Max: 10 MB)",
             type=['dwg', 'dxf'],
-            help="Upload a DWG or DXF file to analyze. Maximum file size: 50 MB for web deployment.",
+            help="Web deployment limit: 10 MB. Run locally for larger files up to 190 MB.",
             key="main_file_uploader",
             accept_multiple_files=False)
 
@@ -492,14 +512,20 @@ def display_integrated_control_panel(components):
             # Validate file immediately
             try:
                 file_size_mb = uploaded_file.size / (1024 * 1024)
-                if file_size_mb > 50:
-                    st.error(f"⚠️ File too large: {file_size_mb:.1f} MB. Maximum allowed: 50 MB")
+                if file_size_mb > 10:
+                    st.error(f"⚠️ File too large: {file_size_mb:.1f} MB. Maximum allowed: 10 MB")
+                    st.markdown("""
+                    **💡 Solutions:**
+                    • **Compress file**: Use CAD software to reduce file size
+                    • **Run locally**: Download and run locally for files up to 190 MB
+                    • **Split drawing**: Divide into smaller sections
+                    """)
                     st.stop()
 
                 col_a, col_b = st.columns([2, 1])
                 with col_a:
                     st.write(f"📄 **{uploaded_file.name}** ({file_size_mb:.1f} MB)")
-                    if file_size_mb > 20:
+                    if file_size_mb > 5:
                         st.warning("⏰ Large file detected. Processing may take longer.")
 
                 with col_b:
@@ -806,8 +832,9 @@ def load_uploaded_file(uploaded_file):
             return None
         
         # Reduce file size limit for tunnel compatibility
-        if len(file_bytes) > 50 * 1024 * 1024:  # 50MB limit
-            st.error(f"File too large: {file_size_mb:.1f} MB. Maximum allowed: 50 MB for web deployment.")
+        if len(file_bytes) > 10 * 1024 * 1024:  # 10MB limit for tunnels
+            st.error(f"File too large: {file_size_mb:.1f} MB. Maximum allowed: 10 MB for web deployment.")
+            st.info("💡 For larger files, run the app locally or use file compression.")
             return None
 
         # Check file size and read with memory optimization
