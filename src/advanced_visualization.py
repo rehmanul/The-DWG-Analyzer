@@ -524,3 +524,97 @@ class AdvancedVisualizer:
                 showlegend=False,
                 hovertemplate=f"Wall Length: {length:.2f}m<extra></extra>"
             ))
+    
+    def create_structural_plan_2d(self, zones: List[Dict]) -> go.Figure:
+        """Create structural engineering plan"""
+        fig = go.Figure()
+        
+        for i, zone in enumerate(zones):
+            points = zone.get('points', [])
+            if len(points) < 3:
+                continue
+            
+            x_coords = [p[0] for p in points] + [points[0][0]]
+            y_coords = [p[1] for p in points] + [points[0][1]]
+            
+            fig.add_trace(go.Scatter(
+                x=x_coords, y=y_coords,
+                mode='lines',
+                line=dict(color='#8B4513', width=8),
+                name=f"Load-bearing Wall {i+1}"
+            ))
+        
+        fig.update_layout(title="<b>Structural Engineering Plan</b>")
+        return fig
+    
+    def create_architectural_plan_2d(self, zones: List[Dict]) -> go.Figure:
+        """Create architectural design plan"""
+        fig = go.Figure()
+        
+        for i, zone in enumerate(zones):
+            points = zone.get('points', [])
+            if len(points) < 3:
+                continue
+            
+            x_coords = [p[0] for p in points] + [points[0][0]]
+            y_coords = [p[1] for p in points] + [points[0][1]]
+            
+            room_type = zone.get('zone_type', 'Room')
+            color = '#2E8B57' if 'Kitchen' in room_type else '#4169E1'
+            
+            fig.add_trace(go.Scatter(
+                x=x_coords, y=y_coords,
+                fill='toself',
+                fillcolor=f'rgba(46, 139, 87, 0.2)',
+                line=dict(color=color, width=3),
+                name=f"{room_type}"
+            ))
+        
+        fig.update_layout(title="<b>Architectural Design Plan</b>")
+        return fig
+    
+    def create_structural_plan_3d(self, zones: List[Dict]) -> go.Figure:
+        """Create 3D structural plan"""
+        fig = go.Figure()
+        
+        for i, zone in enumerate(zones):
+            points = zone.get('points', [])
+            if len(points) < 3:
+                continue
+            
+            x_coords = [p[0] for p in points]
+            y_coords = [p[1] for p in points]
+            z_coords = [4.0] * len(points)
+            
+            fig.add_trace(go.Mesh3d(
+                x=x_coords, y=y_coords, z=z_coords,
+                color='#8B4513',
+                opacity=0.7,
+                name=f"Structural {i+1}"
+            ))
+        
+        fig.update_layout(title="<b>3D Structural Model</b>")
+        return fig
+    
+    def create_architectural_plan_3d(self, zones: List[Dict]) -> go.Figure:
+        """Create 3D architectural plan"""
+        fig = go.Figure()
+        
+        for i, zone in enumerate(zones):
+            points = zone.get('points', [])
+            if len(points) < 3:
+                continue
+            
+            x_coords = [p[0] for p in points]
+            y_coords = [p[1] for p in points]
+            z_coords = [3.0] * len(points)
+            
+            fig.add_trace(go.Mesh3d(
+                x=x_coords, y=y_coords, z=z_coords,
+                color='#FFD700',
+                opacity=0.6,
+                name=f"Room {i+1}"
+            ))
+        
+        fig.update_layout(title="<b>3D Architectural Model</b>")
+        return fig

@@ -19,6 +19,7 @@ def display_construction_plans(components):
     
     with col1:
         plan_type = st.selectbox("Plan Type", ["Construction Plan", "Architectural Plan", "Structural Plan"], key="const_plan_type")
+        st.info(f"Showing: {plan_type}")
     with col2:
         view_mode = st.selectbox("View Mode", ["2D Construction", "3D Construction Model"], key="const_view_mode")
     with col3:
@@ -26,17 +27,21 @@ def display_construction_plans(components):
     with col4:
         show_structure = st.checkbox("Show Structure", value=True, key="const_show_structure")
     
-    # Generate construction visualization
+    # Generate different visualizations based on plan type
     if view_mode == "3D Construction Model":
-        fig = visualizer.create_construction_plan_3d(
-            st.session_state.zones,
-            show_structure=show_structure
-        )
+        if plan_type == "Structural Plan":
+            fig = visualizer.create_structural_plan_3d(st.session_state.zones)
+        elif plan_type == "Architectural Plan":
+            fig = visualizer.create_architectural_plan_3d(st.session_state.zones)
+        else:
+            fig = visualizer.create_construction_plan_3d(st.session_state.zones, show_structure)
     else:
-        fig = visualizer.create_construction_plan_2d(
-            st.session_state.zones,
-            show_details=show_details
-        )
+        if plan_type == "Structural Plan":
+            fig = visualizer.create_structural_plan_2d(st.session_state.zones)
+        elif plan_type == "Architectural Plan":
+            fig = visualizer.create_architectural_plan_2d(st.session_state.zones)
+        else:
+            fig = visualizer.create_construction_plan_2d(st.session_state.zones, show_details)
     
     st.plotly_chart(fig, use_container_width=True)
     

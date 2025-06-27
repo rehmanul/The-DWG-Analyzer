@@ -3,6 +3,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
+from src.export_utils import ExportManager
 import json
 import io
 import math
@@ -1219,7 +1220,37 @@ def display_main_interface(components):
         with tabs[3]:
             display_statistics()
         with tabs[4]:
-            generate_comprehensive_report(components)
+            st.subheader("📤 Export & Reports")
+            if st.session_state.analysis_results:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**Quick Exports:**")
+                    if st.button("📄 PDF Report", key="std_pdf_btn", use_container_width=True):
+                        try:
+                            export_manager = ExportManager()
+                            pdf_data = export_manager.generate_pdf_report(st.session_state.zones, st.session_state.analysis_results)
+                            
+                            st.download_button(
+                                "📥 Download PDF",
+                                data=pdf_data,
+                                file_name=f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                                mime="application/pdf",
+                                key="std_pdf_download_btn",
+                                use_container_width=True
+                            )
+                        except Exception as e:
+                            st.error(f"PDF error: {str(e)}")
+                    
+                    if st.button("📊 CSV Data", key="std_csv_btn", use_container_width=True):
+                        export_statistics_csv()
+                
+                with col2:
+                    st.write("**Comprehensive Report:**")
+                    if st.button("📋 Full Report Package", key="std_full_report_btn", use_container_width=True):
+                        generate_comprehensive_report(components)
+            else:
+                st.info("Run analysis first to enable exports")
 
 
 def display_advanced_analysis_dashboard(components):
@@ -1647,15 +1678,20 @@ def display_advanced_settings(components):
         openai_key = os.environ.get("OPENAI_API_KEY")
         anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
 
-        st.write(
-            f"🔹 Google Gemini: {'✅ Configured' if gemini_key else '❌ Not configured'}"
-        )
-        st.write(
-            f"🔹 OpenAI GPT: {'✅ Configured' if openai_key else '❌ Not configured'}"
-        )
-        st.write(
-            f"🔹 Anthropic Claude: {'✅ Configured' if anthropic_key else '❌ Not configured'}"
-        )
+        if gemini_key:
+            st.success("🔹 Google Gemini: ✅ Configured")
+        else:
+            st.error("🔹 Google Gemini: ❌ Not configured")
+            
+        if openai_key:
+            st.success("🔹 OpenAI GPT: ✅ Configured")
+        else:
+            st.info("🔹 OpenAI GPT: ❌ Not configured")
+            
+        if anthropic_key:
+            st.success("🔹 Anthropic Claude: ✅ Configured")
+        else:
+            st.info("🔹 Anthropic Claude: ❌ Not configured")
 
     with col2:
         st.write("**Add New AI Service:**")
@@ -1752,6 +1788,28 @@ def display_advanced_settings(components):
             'compress_exports': compress_exports
         }
         st.success("Export settings saved!")
+    
+    # Quick PDF Export
+    st.divider()
+    st.subheader("📄 Quick PDF Export")
+    if st.session_state.analysis_results:
+        if st.button("📥 Export PDF Report Now", type="primary", key="quick_pdf_export_btn"):
+            try:
+                export_manager = ExportManager()
+                pdf_data = export_manager.generate_pdf_report(st.session_state.zones, st.session_state.analysis_results)
+                
+                st.download_button(
+                    "Download PDF Report",
+                    data=pdf_data,
+                    file_name=f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                    mime="application/pdf",
+                    key="quick_pdf_download_btn"
+                )
+                st.success("PDF ready for download!")
+            except Exception as e:
+                st.error(f"PDF export error: {str(e)}")
+    else:
+        st.info("Run analysis first to enable PDF export")
 
 
 def generate_comprehensive_report(components):
@@ -1813,6 +1871,25 @@ def generate_comprehensive_report(components):
                     mime="text/csv")
 
             st.success("Comprehensive report package generated!")
+            
+            # Add standalone PDF export button
+            st.divider()
+            st.subheader("📄 PDF Report Export")
+            if st.button("Generate & Download PDF Report", type="primary", key="standalone_pdf_btn"):
+                try:
+                    export_manager = ExportManager()
+                    pdf_data = export_manager.generate_pdf_report(st.session_state.zones, st.session_state.analysis_results)
+                    
+                    st.download_button(
+                        "📥 Download PDF Report",
+                        data=pdf_data,
+                        file_name=f"architectural_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        mime="application/pdf",
+                        key="pdf_download_btn"
+                    )
+                    st.success("PDF report generated successfully!")
+                except Exception as e:
+                    st.error(f"PDF generation error: {str(e)}")
 
     except Exception as e:
         st.error(f"Error generating report: {str(e)}")
@@ -2760,7 +2837,7 @@ def display_advanced_options():
     st.subheader("📤 Export Options")
 
     if st.session_state.analysis_results:
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
 
         with col1:
             if st.button("📊 Export Statistics (CSV)", key="export_csv_btn"):
@@ -2773,6 +2850,22 @@ def display_advanced_options():
         with col3:
             if st.button("📄 Generate PDF Report", key="gen_pdf_btn"):
                 generate_pdf_report()
+                
+        with col4:
+            if st.button("📥 Quick PDF Export", key="quick_pdf_advanced_btn"):
+                try:
+                    export_manager = ExportManager()
+                    pdf_data = export_manager.generate_pdf_report(st.session_state.zones, st.session_state.analysis_results)
+                    
+                    st.download_button(
+                        "Download PDF",
+                        data=pdf_data,
+                        file_name=f"analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        mime="application/pdf",
+                        key="quick_pdf_advanced_download_btn"
+                    )
+                except Exception as e:
+                    st.error(f"PDF error: {str(e)}")
 
     st.divider()
 
