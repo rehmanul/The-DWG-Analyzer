@@ -46,9 +46,8 @@ from src.optimization import PlacementOptimizer
 from src.database import DatabaseManager
 import os
 
-# Configure PostgreSQL (use environment variable or fallback to SQLite)
-if 'DATABASE_URL' not in os.environ:
-    os.environ['DATABASE_URL'] = 'sqlite:///dwg_analyzer.db'
+# Configure PostgreSQL
+os.environ['DATABASE_URL'] = 'postgresql://yang:nNTm6Q4un1aF25fmVvl7YqSzWffyznIe@dpg-d0t3rlili9vc739k84gg-a.oregon-postgres.render.com/dg4u_tiktok_bot'
 from src.ai_integration import GeminiAIAnalyzer
 from src.construction_planner import ConstructionPlanner
 from display_construction_plans import display_construction_plans
