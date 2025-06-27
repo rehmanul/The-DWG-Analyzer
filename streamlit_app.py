@@ -529,6 +529,7 @@ def display_integrated_control_panel(components):
         # File format tabs
         file_tabs = st.tabs(["DWG/DXF Files", "PDF Converter"])
         
+        uploaded_file = None
         with file_tabs[0]:
             uploaded_file = st.file_uploader(
                 f"📤 Select DWG/DXF File (Max: {max_size_mb} MB)",
@@ -540,7 +541,6 @@ def display_integrated_control_panel(components):
         with file_tabs[1]:
             from src.pdf_to_dwg_converter import display_pdf_converter
             display_pdf_converter()
-            uploaded_file = None  # PDF converter handles its own upload
 
         if uploaded_file is not None:
             # Validate file immediately

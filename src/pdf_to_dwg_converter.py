@@ -159,15 +159,11 @@ class PDFToDWGConverter:
             doc.layers.new('WALLS', dxfattribs={'color': 1})  # Red
             doc.layers.new('ROOMS', dxfattribs={'color': 3})  # Green
             
-            # Convert to string
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.dxf', delete=False) as tmp_file:
-                doc.saveas(tmp_file.name)
-                
-                with open(tmp_file.name, 'r') as f:
-                    dxf_content = f.read()
-                
-                os.unlink(tmp_file.name)
-                return dxf_content
+            # Convert to string without temp file
+            from io import StringIO
+            output = StringIO()
+            doc.write(output)
+            return output.getvalue()
                 
         except Exception as e:
             st.error(f"DXF creation error: {str(e)}")
