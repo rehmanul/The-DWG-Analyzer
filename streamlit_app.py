@@ -526,12 +526,21 @@ def display_integrated_control_panel(components):
         is_local = 'localhost' in str(st.get_option('browser.serverAddress')) or st.get_option('server.port') == 5001
         max_size_mb = 190 if is_local else 10
         
-        uploaded_file = st.file_uploader(
-            f"📤 Select DWG/DXF File (Max: {max_size_mb} MB)",
-            type=['dwg', 'dxf'],
-            help=f"{'Local deployment' if is_local else 'Web deployment'} limit: {max_size_mb} MB.",
-            key="main_file_uploader",
-            accept_multiple_files=False)
+        # File format tabs
+        file_tabs = st.tabs(["DWG/DXF Files", "PDF Converter"])
+        
+        with file_tabs[0]:
+            uploaded_file = st.file_uploader(
+                f"📤 Select DWG/DXF File (Max: {max_size_mb} MB)",
+                type=['dwg', 'dxf'],
+                help=f"{'Local deployment' if is_local else 'Web deployment'} limit: {max_size_mb} MB.",
+                key="main_file_uploader",
+                accept_multiple_files=False)
+        
+        with file_tabs[1]:
+            from src.pdf_to_dwg_converter import display_pdf_converter
+            display_pdf_converter()
+            uploaded_file = None  # PDF converter handles its own upload
 
         if uploaded_file is not None:
             # Validate file immediately
@@ -946,14 +955,14 @@ def load_uploaded_file(uploaded_file):
                                         continue
                         
                         if zones:
-                            st.success(f"✅ Parsed {len(zones)} zones from large DXF file")
+                            st.success(f"✅ Parsed {len(zones)} real zones from large DXF file")
                         else:
-                            zones = RobustErrorHandler.create_default_zones(uploaded_file.name, "DXF fallback")
-                            st.info(f"📋 Created {len(zones)} demo zones for large DXF")
+                            st.error("No zones detected in DXF file")
+                            return None
                             
                     except Exception as dxf_error:
-                        st.warning(f"DXF parsing issue: {str(dxf_error)[:50]}...")
-                        zones = RobustErrorHandler.create_default_zones(uploaded_file.name, "DXF error fallback")
+                        st.error(f"DXF parsing failed: {str(dxf_error)[:100]}...")
+                        return None
                         
                 else:
                     # DWG files - use enhanced parser
@@ -962,10 +971,10 @@ def load_uploaded_file(uploaded_file):
                     
                     if result and result.get('zones') and len(result['zones']) > 0:
                         zones = result['zones']
-                        st.success(f"✅ Parsed {len(zones)} zones using {result.get('parsing_method')}")
+                        st.success(f"✅ Parsed {len(zones)} real zones using {result.get('parsing_method')}")
                     else:
-                        zones = RobustErrorHandler.create_default_zones(uploaded_file.name, "DWG fallback")
-                        st.info(f"📋 Created {len(zones)} demo zones for large DWG")
+                        st.error("No zones detected in DWG file")
+                        return None
                 
                 # Cleanup
                 try:
@@ -978,8 +987,8 @@ def load_uploaded_file(uploaded_file):
                     
             except Exception as e:
                 st.error(f"Large file processing error: {str(e)[:100]}...")
-                zones = RobustErrorHandler.create_default_zones(uploaded_file.name, "Error recovery")
-                st.info(f"🔄 Created recovery layout with {len(zones)} zones")
+                st.info("Unable to process this file. Try using the PDF converter or a different file format.")
+                return None
             
             st.session_state.zones = zones
             st.session_state.file_loaded = True
@@ -1068,11 +1077,11 @@ def load_uploaded_file(uploaded_file):
                         parsing_method = result.get('parsing_method', 'enhanced')
                         st.success(f"✅ Parsed {len(zones)} zones using enhanced parser ({parsing_method})")
                 
-                # Final fallback
+                # No fallbacks - real parsing only
                 if not zones:
-                    zones = RobustErrorHandler.create_default_zones(uploaded_file.name, f"Fallback for {uploaded_file.name}")
-                    parsing_method = 'fallback_demo'
-                    st.info(f"📋 Using demo layout: {len(zones)} zones for {uploaded_file.name}")
+                    st.error(f"Failed to parse {uploaded_file.name}. No valid zones detected.")
+                    st.info("This file may be corrupted, empty, or in an unsupported format. Try the PDF converter for PDF files.")
+                    return None
                 
                 # Cleanup temp file
                 try:
@@ -1084,9 +1093,9 @@ def load_uploaded_file(uploaded_file):
                 gc.collect()
                     
             except Exception as parse_error:
-                zones = RobustErrorHandler.create_default_zones(uploaded_file.name, f"Error fallback for {uploaded_file.name}")
-                parsing_method = 'error_fallback'
-                st.warning(f"⚠️ Parsing failed, using demo: {str(parse_error)[:50]}...")
+                st.error(f"Parsing failed: {str(parse_error)}")
+                st.info("This file cannot be processed. Please check the file format or try the PDF converter.")
+                return None
 
             # Zones are already validated from RobustErrorHandler
             validated_zones = zones

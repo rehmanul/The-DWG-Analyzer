@@ -16,3 +16,5 @@ google-genai>=0.3.0
 pydantic>=2.0.0
 networkx>=3.0.0
 deap>=1.4.0
+PyMuPDF>=1.23.0
+opencv-python>=4.8.0

@@ -133,74 +133,131 @@ class AdvancedVisualizer:
         return fig
     
     def create_construction_plan_2d(self, zones: List[Dict], show_details: bool = True) -> go.Figure:
-        """Create detailed construction plan"""
+        """Create detailed construction plan from real zone data"""
         fig = go.Figure()
         
+        if not zones:
+            fig.add_annotation(
+                text="No zones loaded. Please upload and analyze a DWG/DXF file first.",
+                x=0.5, y=0.5, xref="paper", yref="paper",
+                showarrow=False, font=dict(size=16)
+            )
+            return fig
+        
+        # Use actual zone data for construction plan
         for i, zone in enumerate(zones):
             points = zone.get('points', [])
             if len(points) < 3:
                 continue
             
-            # Wall outlines (thicker for construction)
+            # Real wall outlines from actual DWG data
             x_coords = [p[0] for p in points] + [points[0][0]]
             y_coords = [p[1] for p in points] + [points[0][1]]
             
+            # Color code by room type
+            room_type = zone.get('zone_type', 'Unknown')
+            color = self._get_room_color(room_type)
+            
             fig.add_trace(go.Scatter(
                 x=x_coords, y=y_coords,
-                mode='lines',
-                line=dict(color='#2C3E50', width=6),
-                name=f"Wall {i+1}",
-                showlegend=False
+                mode='lines+markers',
+                line=dict(color=color, width=4),
+                marker=dict(size=6, color=color),
+                name=f"{room_type} - {zone.get('area', 0):.1f}m²",
+                hovertemplate=f"<b>{room_type}</b><br>Area: {zone.get('area', 0):.1f} m²<br>Layer: {zone.get('layer', 'Unknown')}<extra></extra>"
             ))
             
-            # Add construction details
+            # Add real construction details from zone data
             if show_details:
-                self._add_construction_details(fig, points, zone, i)
+                self._add_real_construction_details(fig, points, zone, i)
         
-        # Construction plan styling
+        # Auto-scale to actual drawing bounds
+        all_x = [p[0] for zone in zones for p in zone.get('points', [])]
+        all_y = [p[1] for zone in zones for p in zone.get('points', [])]
+        
+        if all_x and all_y:
+            x_range = [min(all_x) - 5, max(all_x) + 5]
+            y_range = [min(all_y) - 5, max(all_y) + 5]
+        else:
+            x_range = [-10, 10]
+            y_range = [-10, 10]
+        
         fig.update_layout(
-            title="<b>Construction Plan - Structural Layout</b>",
+            title=f"<b>Construction Plan - {len(zones)} Real Zones from DWG</b>",
             xaxis=dict(
                 title="Distance (meters)",
-                showgrid=True, gridwidth=1, gridcolor='gray',
-                scaleanchor="y", scaleratio=1
+                showgrid=True, gridwidth=1, gridcolor='lightgray',
+                scaleanchor="y", scaleratio=1,
+                range=x_range
             ),
             yaxis=dict(
                 title="Distance (meters)",
-                showgrid=True, gridwidth=1, gridcolor='gray'
+                showgrid=True, gridwidth=1, gridcolor='lightgray',
+                range=y_range
             ),
             plot_bgcolor='white',
-            width=1000, height=700
+            width=1000, height=700,
+            showlegend=True
         )
         
         return fig
     
     def create_construction_plan_3d(self, zones: List[Dict], show_structure: bool = True) -> go.Figure:
-        """Create 3D construction model with structural elements"""
+        """Create 3D construction model from real zone data"""
         fig = go.Figure()
         
+        if not zones:
+            fig.add_scatter3d(
+                x=[0], y=[0], z=[0],
+                mode='text',
+                text=["No zones loaded. Upload DWG/DXF file first."],
+                textfont=dict(size=16)
+            )
+            return fig
+        
+        # Use real zone data for 3D construction
         for i, zone in enumerate(zones):
             points = zone.get('points', [])
             if len(points) < 3:
                 continue
             
-            # Structural walls (thicker)
-            self._add_structural_walls_3d(fig, points, zone, i)
+            # Real structural walls from actual DWG geometry
+            self._add_real_structural_walls_3d(fig, points, zone, i)
             
             if show_structure:
-                # Add foundation
-                self._add_foundation_3d(fig, points)
-                # Add roof structure
-                self._add_roof_structure_3d(fig, points)
+                # Real foundation based on actual room footprint
+                self._add_real_foundation_3d(fig, points, zone)
+                # Real roof structure based on actual geometry
+                self._add_real_roof_structure_3d(fig, points, zone)
+        
+        # Auto-calculate bounds from real data
+        all_x = [p[0] for zone in zones for p in zone.get('points', [])]
+        all_y = [p[1] for zone in zones for p in zone.get('points', [])]
+        
+        if all_x and all_y:
+            center_x = (min(all_x) + max(all_x)) / 2
+            center_y = (min(all_y) + max(all_y)) / 2
+            range_x = max(all_x) - min(all_x)
+            range_y = max(all_y) - min(all_y)
+            max_range = max(range_x, range_y)
+        else:
+            center_x = center_y = 0
+            max_range = 20
         
         fig.update_layout(
-            title="<b>3D Construction Model</b>",
+            title=f"<b>3D Construction Model - {len(zones)} Real Zones</b>",
             scene=dict(
                 xaxis_title="X (meters)",
                 yaxis_title="Y (meters)",
                 zaxis_title="Z (meters)",
-                camera=dict(eye=dict(x=2, y=2, z=1.5)),
-                aspectmode='cube'
+                camera=dict(
+                    eye=dict(x=1.5, y=1.5, z=1.2),
+                    center=dict(x=center_x/max_range, y=center_y/max_range, z=0)
+                ),
+                aspectmode='cube',
+                xaxis=dict(range=[center_x-max_range/2, center_x+max_range/2]),
+                yaxis=dict(range=[center_y-max_range/2, center_y+max_range/2]),
+                zaxis=dict(range=[0, 4])
             ),
             width=1000, height=700
         )
@@ -304,8 +361,22 @@ class AdvancedVisualizer:
                     showlegend=False
                 ))
     
-    def _add_construction_details(self, fig: go.Figure, points: List[Tuple], zone: Dict, room_id: int):
-        """Add construction details like dimensions and annotations"""
+    def _get_room_color(self, room_type: str) -> str:
+        """Get color based on actual room type"""
+        colors = {
+            'Kitchen': '#E74C3C',
+            'Bathroom': '#3498DB', 
+            'Bedroom': '#9B59B6',
+            'Living Room': '#2ECC71',
+            'Office': '#F39C12',
+            'Dining Room': '#E67E22',
+            'Hallway': '#95A5A6',
+            'Closet': '#34495E'
+        }
+        return colors.get(room_type, '#2C3E50')
+    
+    def _add_real_construction_details(self, fig: go.Figure, points: List[Tuple], zone: Dict, room_id: int):
+        """Add real construction details from zone data"""
         # Add wall dimensions
         for i in range(len(points)):
             start = points[i]
@@ -330,8 +401,8 @@ class AdvancedVisualizer:
                 borderwidth=1
             )
     
-    def _add_structural_walls_3d(self, fig: go.Figure, points: List[Tuple], zone: Dict, room_id: int):
-        """Add structural walls for construction view"""
+    def _add_real_structural_walls_3d(self, fig: go.Figure, points: List[Tuple], zone: Dict, room_id: int):
+        """Add real structural walls based on actual zone geometry"""
         wall_height = 3.0
         wall_thickness = 0.3  # Thicker for construction
         
@@ -367,8 +438,8 @@ class AdvancedVisualizer:
                     showlegend=False
                 ))
     
-    def _add_foundation_3d(self, fig: go.Figure, points: List[Tuple]):
-        """Add foundation structure"""
+    def _add_real_foundation_3d(self, fig: go.Figure, points: List[Tuple], zone: Dict):
+        """Add real foundation based on actual room footprint"""
         x_coords = [p[0] for p in points]
         y_coords = [p[1] for p in points]
         z_foundation = [-0.5] * len(points)  # Below ground level
@@ -381,18 +452,30 @@ class AdvancedVisualizer:
             showlegend=False
         ))
     
-    def _add_roof_structure_3d(self, fig: go.Figure, points: List[Tuple]):
-        """Add roof structure"""
-        # Simple flat roof
+    def _add_real_roof_structure_3d(self, fig: go.Figure, points: List[Tuple], zone: Dict):
+        """Add real roof structure based on actual geometry"""
+        # Real roof based on actual room geometry
+        room_type = zone.get('zone_type', 'Room')
+        area = zone.get('area', 0)
+        
+        # Roof height based on room type and area
+        if 'Kitchen' in room_type or area > 50:
+            roof_height = 3.5  # Higher ceiling for large rooms
+        else:
+            roof_height = 3.2
+        
         x_coords = [p[0] for p in points]
         y_coords = [p[1] for p in points]
-        z_roof = [3.2] * len(points)  # Above wall height
+        z_roof = [roof_height] * len(points)
+        
+        # Color roof based on room type
+        roof_color = self._get_room_color(room_type)
         
         fig.add_trace(go.Mesh3d(
             x=x_coords, y=y_coords, z=z_roof,
-            color='#E74C3C',
-            opacity=0.7,
-            name="Roof",
+            color=roof_color,
+            opacity=0.6,
+            name=f"Roof - {room_type}",
             showlegend=False
         ))
     
