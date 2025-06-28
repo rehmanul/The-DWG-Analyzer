@@ -914,9 +914,6 @@ def load_uploaded_file(uploaded_file):
 
         file_size_mb = len(file_bytes) / (1024 * 1024)
         st.info(f"Processing {file_ext.upper()} file: {file_size_mb:.1f} MB")
-        
-        # Show file info
-        st.info(f"Processing {file_ext.upper()} file: {file_size_mb:.1f} MB")
 
         # Handle large files with streaming and memory optimization
         if file_size_mb > 10:  # Threshold for large file handling
