@@ -902,19 +902,6 @@ def load_uploaded_file(uploaded_file):
             st.error(f"Unsupported file format: {file_ext}. Please upload DWG or DXF files only.")
             return None
         
-        # Dynamic file size limit based on deployment
-        is_local = 'localhost' in st.get_option('browser.serverAddress') or '127.0.0.1' in st.get_option('browser.serverAddress') or st.get_option('server.port') == 5001
-        max_size_mb = 190 if is_local else 10
-        max_size_bytes = max_size_mb * 1024 * 1024
-        
-        if len(file_bytes) > max_size_bytes:
-            if is_local:
-                st.error(f"File too large: {file_size_mb:.1f} MB. Maximum allowed: {max_size_mb} MB.")
-            else:
-                st.error(f"File too large: {file_size_mb:.1f} MB. Maximum allowed: {max_size_mb} MB for web deployment.")
-                st.info("💡 For larger files, run the app locally or use file compression.")
-            return None
-
         # Check file size and read with memory optimization
         try:
             file_bytes = uploaded_file.getvalue()
@@ -927,6 +914,7 @@ def load_uploaded_file(uploaded_file):
             return None
 
         file_size_mb = len(file_bytes) / (1024 * 1024)
+        st.info(f"Processing {file_ext.upper()} file: {file_size_mb:.1f} MB")
         
         # Show file info
         st.info(f"Processing {file_ext.upper()} file: {file_size_mb:.1f} MB")
