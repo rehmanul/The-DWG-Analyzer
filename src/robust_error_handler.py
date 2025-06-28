@@ -147,7 +147,7 @@ class RobustErrorHandler:
         return zones
 
 def robust_parser(error_context: str = ""):
-    """Decorator for robust parsing with error handling"""
+    """Decorator for robust parsing with error handling - NO FALLBACKS"""
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -158,7 +158,7 @@ def robust_parser(error_context: str = ""):
             except Exception as e:
                 logger.error(f"{error_context} - {func.__name__} failed: {e}")
                 
-            # Return sensible defaults
-            return RobustErrorHandler.create_default_zones(context=error_context)
+            # NO FALLBACKS - return None if parsing fails
+            return None
         return wrapper
     return decorator

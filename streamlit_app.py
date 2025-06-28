@@ -1138,63 +1138,37 @@ def load_uploaded_file(uploaded_file):
 
     except Exception as e:
         st.error(f"File upload error: {str(e)}")
-        # Emergency fallback
-        try:
-            zones = RobustErrorHandler.create_default_zones(uploaded_file.name if uploaded_file and uploaded_file.name else "unknown_file", "Critical error recovery")
-            st.session_state.zones = zones
-            st.session_state.file_loaded = True
-            st.session_state.current_file = uploaded_file.name if uploaded_file and uploaded_file.name else "fallback_file"
-            st.session_state.dwg_loaded = True
-            st.session_state.analysis_results = {}
-            st.session_state.analysis_complete = False
-
-            st.warning(f"File processing encountered issues, but created a working environment with {len(zones)} zones")
-            return zones
-        except Exception as fallback_error:
-            st.error(f"Critical error in file processing: {str(fallback_error)}")
-            return None
+        st.error(f"❌ File upload failed: {str(e)}")
+        st.info("Unable to process this file. Please check the file format and try again.")
+        return None
 
 
 def load_sample_file(sample_path, selected_sample):
-    """Load sample file with error handling and fallback"""
+    """Load sample file - REAL PARSING ONLY"""
     try:
-        # Try parsing the file
-        parser = DWGParser()
-        zones = parser.parse_file(sample_path)
+        # Enhanced parser for real DWG/DXF parsing
+        enhanced_parser = EnhancedDWGParser()
+        result = enhanced_parser.parse_file(sample_path)
         
-        if zones and len(zones) > 0:
+        if result and result.get('zones') and len(result['zones']) > 0:
+            zones = result['zones']
             st.session_state.zones = zones
             st.session_state.file_loaded = True
             st.session_state.current_file = selected_sample
             st.session_state.dwg_loaded = True
             st.session_state.analysis_results = {}
             st.session_state.analysis_complete = False
-            st.success(f"Successfully loaded {len(zones)} zones from '{selected_sample}'")
+            st.success(f"✅ Parsed {len(zones)} REAL zones from '{selected_sample}' using {result.get('parsing_method')}")
             return zones
         else:
-            # Fallback to demo zones
-            st.warning(f"Could not parse '{selected_sample}' - using demo zones for presentation")
-            zones = RobustErrorHandler.create_default_zones(selected_sample, "Sample file fallback")
-            
-            st.session_state.zones = zones
-            st.session_state.file_loaded = True
-            st.session_state.current_file = selected_sample
-            st.session_state.dwg_loaded = True
-            st.session_state.analysis_results = {}
-            st.session_state.analysis_complete = False
-            return zones
+            st.error(f"❌ Could not parse '{selected_sample}' - No valid zones found in file")
+            st.info("This file may be corrupted, empty, or in an unsupported DWG/DXF format.")
+            return None
             
     except Exception as e:
-        st.warning(f"Error loading '{selected_sample}': {str(e)[:50]}... - using demo zones")
-        zones = RobustErrorHandler.create_default_zones(selected_sample, "Error fallback")
-        
-        st.session_state.zones = zones
-        st.session_state.file_loaded = True
-        st.session_state.current_file = selected_sample
-        st.session_state.dwg_loaded = True
-        st.session_state.analysis_results = {}
-        st.session_state.analysis_complete = False
-        return zones
+        st.error(f"❌ Parsing failed for '{selected_sample}': {str(e)}")
+        st.info("File parsing error - check if file is a valid DWG/DXF format.")
+        return None
 
 
 def compile_parameters():
