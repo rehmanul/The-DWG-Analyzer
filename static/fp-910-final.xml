@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Form xmlns="http://rep.oio.dk/sundcom.dk/medcom.dk/xml/schemas/2018/06/25/"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xmlns:pbasis="http://rep.oio.dk/sundcom.dk/medcom.dk/xml/schemas/2018/06/20/">
-  <DenDynamiskeBlanket>
-    <!-- Content goes here -->
-  </DenDynamiskeBlanket>
-</Form>

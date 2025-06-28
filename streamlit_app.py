@@ -1156,25 +1156,45 @@ def load_uploaded_file(uploaded_file):
 
 
 def load_sample_file(sample_path, selected_sample):
-    """Load sample file with error handling"""
+    """Load sample file with error handling and fallback"""
     try:
-        with open(sample_path, 'rb') as f:
-            file_bytes = f.read()
-
+        # Try parsing the file
         parser = DWGParser()
-        zones = parser.parse_file(file_bytes, Path(sample_path).name)
-        if zones:
+        zones = parser.parse_file(sample_path)
+        
+        if zones and len(zones) > 0:
             st.session_state.zones = zones
             st.session_state.file_loaded = True
             st.session_state.current_file = selected_sample
-            st.success(
-                f"Successfully loaded {len(zones)} zones from '{selected_sample}'"
-            )
-            st.rerun()
+            st.session_state.dwg_loaded = True
+            st.session_state.analysis_results = {}
+            st.session_state.analysis_complete = False
+            st.success(f"Successfully loaded {len(zones)} zones from '{selected_sample}'")
+            return zones
         else:
-            st.error("Could not parse the selected file")
+            # Fallback to demo zones
+            st.warning(f"Could not parse '{selected_sample}' - using demo zones for presentation")
+            zones = RobustErrorHandler.create_default_zones(selected_sample, "Sample file fallback")
+            
+            st.session_state.zones = zones
+            st.session_state.file_loaded = True
+            st.session_state.current_file = selected_sample
+            st.session_state.dwg_loaded = True
+            st.session_state.analysis_results = {}
+            st.session_state.analysis_complete = False
+            return zones
+            
     except Exception as e:
-        st.error(f"Error loading file: {str(e)}")
+        st.warning(f"Error loading '{selected_sample}': {str(e)[:50]}... - using demo zones")
+        zones = RobustErrorHandler.create_default_zones(selected_sample, "Error fallback")
+        
+        st.session_state.zones = zones
+        st.session_state.file_loaded = True
+        st.session_state.current_file = selected_sample
+        st.session_state.dwg_loaded = True
+        st.session_state.analysis_results = {}
+        st.session_state.analysis_complete = False
+        return zones
 
 
 def compile_parameters():
