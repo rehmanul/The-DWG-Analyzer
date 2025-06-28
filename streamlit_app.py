@@ -479,17 +479,29 @@ def display_integrated_control_panel(components):
         st.subheader("📁 Upload DWG/DXF File")
         
         # Dynamic file size info based on deployment
-        is_local = 'localhost' in str(st.get_option('browser.serverAddress')) or st.get_option('server.port') == 5001
-        max_size_mb = 190 if is_local else 10
+        try:
+            server_addr = str(st.get_option('browser.serverAddress') or '')
+            server_port = st.get_option('server.port')
+        except:
+            server_addr = ''
+            server_port = 8501
         
-        if is_local:
-            st.success(
-                f"✅ **Local Version**: Maximum {max_size_mb} MB file size supported."
-            )
+        is_local = 'localhost' in server_addr or server_port == 5001
+        is_tunnel = 'devtunnels.ms' in server_addr or 'ngrok' in server_addr
+        
+        if is_tunnel:
+            max_size_mb = 500  # Tunnel deployment
+        elif is_local:
+            max_size_mb = 190  # Local deployment
         else:
-            st.warning(
-                f"⚠️ **Web Version Limit**: Maximum {max_size_mb} MB file size. For larger files, run locally."
-            )
+            max_size_mb = 100  # Web deployment increased
+        
+        if is_tunnel:
+            st.success(f"🌐 **Tunnel Deployment**: Maximum {max_size_mb} MB file size supported.")
+        elif is_local:
+            st.success(f"✅ **Local Version**: Maximum {max_size_mb} MB file size supported.")
+        else:
+            st.success(f"🌍 **Web Version**: Maximum {max_size_mb} MB file size supported.")
         
         with st.expander("📏 File Size Guidelines"):
             is_local = 'localhost' in str(st.get_option('browser.serverAddress')) or st.get_option('server.port') == 5001
@@ -548,8 +560,22 @@ def display_integrated_control_panel(components):
             try:
                 file_size_mb = uploaded_file.size / (1024 * 1024)
                 # Dynamic file size check
-                is_local = 'localhost' in str(st.get_option('browser.serverAddress')) or st.get_option('server.port') == 5001
-                max_size_mb = 190 if is_local else 10
+                try:
+                    server_addr = str(st.get_option('browser.serverAddress') or '')
+                    server_port = st.get_option('server.port')
+                except:
+                    server_addr = ''
+                    server_port = 8501
+                
+                is_local = 'localhost' in server_addr or server_port == 5001
+                is_tunnel = 'devtunnels.ms' in server_addr or 'ngrok' in server_addr
+                
+                if is_tunnel:
+                    max_size_mb = 500
+                elif is_local:
+                    max_size_mb = 190
+                else:
+                    max_size_mb = 100
                 
                 if file_size_mb > max_size_mb:
                     st.error(f"⚠️ File too large: {file_size_mb:.1f} MB. Maximum allowed: {max_size_mb} MB")
