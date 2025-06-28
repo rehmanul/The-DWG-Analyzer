@@ -490,11 +490,11 @@ def display_integrated_control_panel(components):
         is_tunnel = 'devtunnels.ms' in server_addr or 'ngrok' in server_addr
         
         if is_tunnel:
-            max_size_mb = 500  # Tunnel deployment
+            max_size_mb = 1000  # Tunnel deployment increased
         elif is_local:
-            max_size_mb = 190  # Local deployment
+            max_size_mb = 500   # Local deployment increased
         else:
-            max_size_mb = 100  # Web deployment increased
+            max_size_mb = 200   # Web deployment increased
         
         if is_tunnel:
             st.success(f"🌐 **Tunnel Deployment**: Maximum {max_size_mb} MB file size supported.")
@@ -571,11 +571,11 @@ def display_integrated_control_panel(components):
                 is_tunnel = 'devtunnels.ms' in server_addr or 'ngrok' in server_addr
                 
                 if is_tunnel:
-                    max_size_mb = 500
+                    max_size_mb = 1000
                 elif is_local:
-                    max_size_mb = 190
+                    max_size_mb = 500
                 else:
-                    max_size_mb = 100
+                    max_size_mb = 200
                 
                 if file_size_mb > max_size_mb:
                     st.error(f"⚠️ File too large: {file_size_mb:.1f} MB. Maximum allowed: {max_size_mb} MB")
