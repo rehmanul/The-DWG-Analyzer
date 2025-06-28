@@ -902,15 +902,14 @@ def load_uploaded_file(uploaded_file):
             st.error(f"Unsupported file format: {file_ext}. Please upload DWG or DXF files only.")
             return None
         
-        # Check file size and read with memory optimization
+        # Read file bytes first
         try:
             file_bytes = uploaded_file.getvalue()
+            if not file_bytes or len(file_bytes) == 0:
+                st.error("File appears to be empty")
+                return None
         except Exception as e:
             st.error(f"Could not read file: {str(e)}")
-            return None
-
-        if not file_bytes or len(file_bytes) == 0:
-            st.error("File appears to be empty")
             return None
 
         file_size_mb = len(file_bytes) / (1024 * 1024)
