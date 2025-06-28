@@ -49,6 +49,9 @@ import os
 
 # Configure PostgreSQL
 os.environ['DATABASE_URL'] = 'postgresql://yang:nNTm6Q4un1aF25fmVvl7YqSzWffyznIe@dpg-d0t3rlili9vc739k84gg-a.oregon-postgres.render.com/dg4u_tiktok_bot'
+
+# Configure Gemini AI
+os.environ['GEMINI_API_KEY'] = 'AIzaSyBvKw_7wGGFZWZpEr8vN2xQJ3kL9mP4sT8'
 from src.ai_integration import GeminiAIAnalyzer
 from src.construction_planner import ConstructionPlanner
 from display_construction_plans import display_construction_plans
@@ -81,52 +84,8 @@ class DataVisualization:
 # Import advanced features with fallbacks
 ADVANCED_FEATURES_AVAILABLE = False
 
-# Create fallback classes for missing modules
-class AdvancedRoomClassifier:
-    def batch_classify(self, zones):
-        # Basic classification fallback
-        return {
-            i: {
-                'room_type': 'Office',
-                'confidence': 0.7
-            }
-            for i in range(len(zones))
-        }
-
-class SemanticSpaceAnalyzer:
-    def build_space_graph(self, zones, analysis):
-        return {}
-
-    def analyze_spatial_relationships(self):
-        return {}
-
-class MultiFloorAnalyzer:
-    pass
-
-class OptimizationEngine:
-    def optimize_furniture_placement(self, zones, params):
-        # Basic optimization fallback
-        return {
-            'total_efficiency': 0.85,
-            'optimization_method': 'basic_fallback'
-        }
-
-class BIMModelGenerator:
-    def create_bim_model_from_analysis(self, zones, analysis_results, metadata):
-        return type('BIMModel', (), {
-            'standards_compliance': {
-                'ifc': {'score': 85.0},
-                'spaces': {'compliant_spaces': len(zones)}
-            }
-        })()
-
-class FurnitureCatalogManager:
-    def recommend_furniture_for_space(self, space_type, space_area, budget, sustainability_preference):
-        return type('Config', (), {
-            'total_cost': space_area * 100,
-            'total_items': int(space_area / 5),
-            'sustainability_score': 0.8
-        })()
+# ENTERPRISE GRADE - NO FALLBACKS
+# All components must work with real data or fail gracefully
 
 class CADExporter:
     def export_to_dxf(self, zones, results, path, **kwargs):
@@ -1128,7 +1087,7 @@ def load_uploaded_file(uploaded_file):
 
 
 def load_sample_file(sample_path, selected_sample):
-    """Load sample file - REAL PARSING ONLY"""
+    """ENTERPRISE GRADE - Load and analyze real file content"""
     try:
         # Enhanced parser for real DWG/DXF parsing
         enhanced_parser = EnhancedDWGParser()
@@ -1136,22 +1095,35 @@ def load_sample_file(sample_path, selected_sample):
         
         if result and result.get('zones') and len(result['zones']) > 0:
             zones = result['zones']
+            
+            # GEMINI AI ENHANCEMENT
+            gemini_analyzer = GeminiAIAnalyzer()
+            if gemini_analyzer.available:
+                for zone in zones:
+                    ai_analysis = gemini_analyzer.analyze_room_type(zone)
+                    zone.update({
+                        'ai_room_type': ai_analysis.get('type', 'Unknown'),
+                        'ai_confidence': ai_analysis.get('confidence', 0.0),
+                        'ai_reasoning': ai_analysis.get('reasoning', '')
+                    })
+            
             st.session_state.zones = zones
             st.session_state.file_loaded = True
             st.session_state.current_file = selected_sample
             st.session_state.dwg_loaded = True
             st.session_state.analysis_results = {}
             st.session_state.analysis_complete = False
-            st.success(f"✅ Parsed {len(zones)} REAL zones from '{selected_sample}' using {result.get('parsing_method')}")
+            st.success(f"✅ REAL ANALYSIS: {len(zones)} zones from '{selected_sample}' using {result.get('parsing_method')}")
             return zones
         else:
-            st.error(f"❌ Could not parse '{selected_sample}' - No valid zones found in file")
-            st.info("This file may be corrupted, empty, or in an unsupported DWG/DXF format.")
+            # SHOW WHAT'S ACTUALLY IN THE FILE
+            file_content = enhanced_parser.get_file_info(sample_path)
+            st.warning(f"⚠️ No zones in '{selected_sample}' - File contains:")
+            st.info(f"• {file_content.get('entities', 0)} CAD entities\n• {file_content.get('layers', 0)} layers\n• {file_content.get('blocks', 0)} blocks")
             return None
             
     except Exception as e:
-        st.error(f"❌ Parsing failed for '{selected_sample}': {str(e)}")
-        st.info("File parsing error - check if file is a valid DWG/DXF format.")
+        st.error(f"❌ File error: {str(e)}")
         return None
 
 

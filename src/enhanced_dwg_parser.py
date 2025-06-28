@@ -284,14 +284,29 @@ class EnhancedDWGParser:
 
         return zones
 
+    def get_file_info(self, file_path: str) -> Dict[str, Any]:
+        """ENTERPRISE: Get real file information without creating fake zones"""
+        try:
+            doc = ezdxf.readfile(file_path)
+            entities = len(list(doc.modelspace()))
+            layers = len(doc.layers)
+            blocks = len(doc.blocks)
+            
+            return {
+                'entities': entities,
+                'layers': layers, 
+                'blocks': blocks,
+                'file_type': 'DXF' if file_path.lower().endswith('.dxf') else 'DWG'
+            }
+        except:
+            return {'entities': 0, 'layers': 0, 'blocks': 0, 'file_type': 'Unknown'}
+    
     def _create_intelligent_fallback(self, file_path: str) -> Dict[str, Any]:
-        """Create intelligent fallback zones"""
-        zones = RobustErrorHandler.create_default_zones(file_path, "Enhanced parser fallback")
-
+        """ENTERPRISE: NO FALLBACKS - Return empty if no real zones"""
         return {
-            'zones': zones,
-            'parsing_method': 'intelligent_fallback',
-            'note': 'Created default layout for analysis'
+            'zones': [],
+            'parsing_method': 'no_zones_detected',
+            'note': 'No valid zones found in file'
         }
 
 def parse_dwg_file_enhanced(file_path: str) -> Dict[str, Any]:
