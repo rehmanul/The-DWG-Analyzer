@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime
 
 # Snowflake-specific configuration
@@ -30,10 +28,9 @@ def main():
         st.success(f"File uploaded: {uploaded_file.name}")
         st.info("DWG/DXF parsing functionality will be integrated next.")
     
-    # Demo visualization
+    # Demo data
     st.subheader("📊 Demo Analysis")
     
-    # Sample data
     data = {
         'Room Type': ['Office', 'Meeting Room', 'Storage', 'Lobby'],
         'Area (m²)': [45.2, 25.8, 12.3, 38.5],
@@ -41,18 +38,16 @@ def main():
     }
     
     df = pd.DataFrame(data)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fig = px.bar(df, x='Room Type', y='Area (m²)', title='Room Areas')
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        fig2 = px.pie(df, values='Area (m²)', names='Room Type', title='Area Distribution')
-        st.plotly_chart(fig2, use_container_width=True)
-    
     st.dataframe(df, use_container_width=True)
+    
+    # Simple metrics
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Rooms", len(df))
+    with col2:
+        st.metric("Total Area", f"{df['Area (m²)'].sum():.1f} m²")
+    with col3:
+        st.metric("Avg Confidence", f"{df['Confidence'].mean():.1%}")
 
 if __name__ == "__main__":
     main()
