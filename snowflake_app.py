@@ -49,5 +49,5 @@ def main():
     with col3:
         st.metric("Avg Confidence", f"{df['Confidence'].mean():.1%}")
 
-if __name__ == "__main__":
-    main()
+# Run the app
+main()
