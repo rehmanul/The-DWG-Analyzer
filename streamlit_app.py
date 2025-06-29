@@ -612,15 +612,15 @@ def display_integrated_control_panel(components):
                                  key="load_uploaded_file_btn"):
                         try:
                             with st.spinner("Loading file..."):
-                                zones = load_uploaded_file(uploaded_file)
-                                if zones and len(zones) > 0:
-                                    st.success(f"✅ Successfully loaded {len(zones)} zones from {uploaded_file.name}")
-                                    st.rerun()
-                                elif hasattr(st.session_state, 'file_info') and st.session_state.file_info:
-                                    st.success(f"✅ File loaded: {st.session_state.file_info['entities']} entities found (no zones)")
+                                result = load_uploaded_file(uploaded_file)
+                                if result is not None:
+                                    if len(result) > 0:
+                                        st.success(f"✅ Successfully loaded {len(result)} zones from {uploaded_file.name}")
+                                    else:
+                                        st.success(f"✅ File processed: {st.session_state.get('file_info', {}).get('entities', 0)} entities found")
                                     st.rerun()
                                 else:
-                                    st.error("❌ Failed to load file or no zones found")
+                                    st.error("❌ Failed to process file")
                         except Exception as e:
                             st.error(f"❌ Upload error: {str(e)}")
 
@@ -1044,7 +1044,7 @@ def load_uploaded_file(uploaded_file):
             st.session_state.analysis_results = {}
             st.session_state.analysis_complete = False
             
-            return zones
+            return zones if zones else []
 
         # Use timeout for large file processing
         import signal
