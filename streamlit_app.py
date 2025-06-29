@@ -616,6 +616,9 @@ def display_integrated_control_panel(components):
                                 if zones and len(zones) > 0:
                                     st.success(f"✅ Successfully loaded {len(zones)} zones from {uploaded_file.name}")
                                     st.rerun()
+                                elif hasattr(st.session_state, 'file_info') and st.session_state.file_info:
+                                    st.success(f"✅ File loaded: {st.session_state.file_info['entities']} entities found (no zones)")
+                                    st.rerun()
                                 else:
                                     st.error("❌ Failed to load file or no zones found")
                         except Exception as e:
