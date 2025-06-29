@@ -1029,6 +1029,13 @@ def load_uploaded_file(uploaded_file):
                         st.session_state.zones = []
                         st.session_state.file_loaded = True
                         st.session_state.current_file = uploaded_file.name
+                        
+                        # Cleanup and return
+                        try:
+                            os.unlink(tmp_path)
+                        except:
+                            pass
+                        gc.collect()
                         return []  # Return empty zones but file is loaded
                 
                 # Cleanup
