@@ -992,7 +992,7 @@ def load_uploaded_file(uploaded_file):
                             st.session_state.zones = []
                             st.session_state.file_loaded = True
                             st.session_state.current_file = uploaded_file.name
-                            return []  # Return empty zones but file is loaded
+                            zones = []  # Set zones to empty array
                             
                     except Exception as dxf_error:
                         st.error(f"DXF parsing failed: {str(dxf_error)[:100]}...")
@@ -1037,7 +1037,8 @@ def load_uploaded_file(uploaded_file):
                 st.info("Unable to process this file. Try using the PDF converter or a different file format.")
                 return None
             
-            st.session_state.zones = zones
+            # Update session state
+            st.session_state.zones = zones if zones else []
             st.session_state.file_loaded = True
             st.session_state.current_file = uploaded_file.name
             st.session_state.dwg_loaded = True
