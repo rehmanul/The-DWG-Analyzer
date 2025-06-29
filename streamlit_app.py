@@ -972,10 +972,24 @@ def load_uploaded_file(uploaded_file):
                                         continue
                         
                         if zones:
-                            st.success(f"✅ Parsed {len(zones)} real zones from large DXF file")
+                            st.success(f"✅ Parsed {len(zones)} real zones from DXF file")
                         else:
-                            st.error("No zones detected in DXF file")
-                            return None
+                            # SHOW REAL FILE INFO EVEN WITHOUT ZONES
+                            st.warning("⚠️ No zones detected - but file loaded successfully")
+                            st.info(f"📋 File contains: {entity_count} CAD entities")
+                            
+                            # Store file info for display
+                            st.session_state.file_info = {
+                                'filename': uploaded_file.name,
+                                'size_mb': file_size_mb,
+                                'entities': entity_count,
+                                'file_type': 'DXF',
+                                'status': 'loaded_no_zones'
+                            }
+                            st.session_state.zones = []
+                            st.session_state.file_loaded = True
+                            st.session_state.current_file = uploaded_file.name
+                            return []  # Return empty zones but file is loaded
                             
                     except Exception as dxf_error:
                         st.error(f"DXF parsing failed: {str(dxf_error)[:100]}...")
@@ -990,8 +1004,21 @@ def load_uploaded_file(uploaded_file):
                         zones = result['zones']
                         st.success(f"✅ Parsed {len(zones)} real zones using {result.get('parsing_method')}")
                     else:
-                        st.error("No zones detected in DWG file")
-                        return None
+                        # SHOW REAL FILE INFO EVEN WITHOUT ZONES
+                        st.warning("⚠️ No zones detected - but file processed successfully")
+                        st.info(f"📋 File: {uploaded_file.name} ({file_size_mb:.1f} MB)")
+                        
+                        # Store file info for display
+                        st.session_state.file_info = {
+                            'filename': uploaded_file.name,
+                            'size_mb': file_size_mb,
+                            'file_type': 'DWG',
+                            'status': 'loaded_no_zones'
+                        }
+                        st.session_state.zones = []
+                        st.session_state.file_loaded = True
+                        st.session_state.current_file = uploaded_file.name
+                        return []  # Return empty zones but file is loaded
                 
                 # Cleanup
                 try:
@@ -1096,9 +1123,22 @@ def load_uploaded_file(uploaded_file):
                 
                 # No fallbacks - real parsing only
                 if not zones:
-                    st.error(f"Failed to parse {uploaded_file.name}. No valid zones detected.")
-                    st.info("This file may be corrupted, empty, or in an unsupported format. Try the PDF converter for PDF files.")
-                    return None
+                    # STILL SHOW FILE WAS PROCESSED
+                    st.warning(f"⚠️ {uploaded_file.name} processed - No zones detected")
+                    st.info(f"📋 File info: {file_size_mb:.1f} MB {file_ext.upper()} file")
+                    st.info("💡 This file may contain technical drawings, elevations, or details without room boundaries")
+                    
+                    # Store file info even without zones
+                    st.session_state.file_info = {
+                        'filename': uploaded_file.name,
+                        'size_mb': file_size_mb,
+                        'file_type': file_ext.upper(),
+                        'status': 'processed_no_zones'
+                    }
+                    st.session_state.zones = []
+                    st.session_state.file_loaded = True
+                    st.session_state.current_file = uploaded_file.name
+                    return []  # Return empty but file is loaded
                 
                 # Cleanup temp file
                 try:
