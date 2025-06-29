@@ -1,3 +1,16 @@
 streamlit
 pandas
 numpy
+plotly
+ezdxf
+matplotlib
+shapely
+reportlab
+opencv-python-headless
+scikit-learn
+scipy
+psycopg2-binary
+sqlalchemy
+google-generativeai
+pydantic
+networkx
