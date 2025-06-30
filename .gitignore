@@ -1,75 +1,38 @@
-# Environment variables
-.env
-.env.local
-.env.production
+# Executables and large files
+*.exe
+*.msi
+*.dmg
+*.pkg
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+# Build artifacts
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual environments
-venv/
-env/
-ENV/
-dwg/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
+*.spec
+__pycache__/
+*.pyc
+*.pyo
 
 # Logs
 *.log
 app.log
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
 # Temporary files
 *.tmp
 *.temp
-temp/
-tmp/
 
-# Replit files
-.replit
-replit.md
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Large files
-*.dwg
-*.dxf
-attached_assets/
+# OS files
+.DS_Store
+Thumbs.db
 
-# Cache
-.streamlit/
-.cache/
+# Large installer files
+AI_Architectural_Analyzer_Setup.exe
 
-# Collaboration database
-collaboration.db
-dwg_analyzer.db
-furniture_catalog.db
+# PyInstaller
+*.manifest
+*.exe.manifest
