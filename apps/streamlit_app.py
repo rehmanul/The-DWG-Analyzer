@@ -48,7 +48,7 @@ from src.database import DatabaseManager
 import os
 
 # Configure PostgreSQL
-os.environ['DATABASE_URL'] = 'postgresql://yang:nNTm6Q4un1aF25fmVvl7YqSzWffyznIe@dpg-d0t3rlili9vc739k84gg-a.oregon-postgres.render.com/dg4u_tiktok_bot'
+os.environ['DATABASE_URL'] = 'postgresql://de_de:PUPB8V0s2b3bvNZUblolz7d6UM9bcBzb@dpg-d1h53rffte5s739b1i40-a.oregon-postgres.render.com/dwg_analyzer_pro'
 
 # Configure Gemini AI
 os.environ['GEMINI_API_KEY'] = 'AIzaSyBvKw_7wGGFZWZpEr8vN2xQJ3kL9mP4sT8'

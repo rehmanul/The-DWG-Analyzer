@@ -13,7 +13,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 # Database configuration
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://yang:nNTm6Q4un1aF25fmVvl7YqSzWffyznIe@dpg-d0t3rlili9vc739k84gg-a.oregon-postgres.render.com/dg4u_tiktok_bot')
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://de_de:PUPB8V0s2b3bvNZUblolz7d6UM9bcBzb@dpg-d1h53rffte5s739b1i40-a.oregon-postgres.render.com/dwg_analyzer_pro')
 Base = declarative_base()
 
 class Project(Base):
@@ -180,7 +180,7 @@ class DatabaseManager:
     
     def __init__(self, database_url=None):
         # Use provided URL or environment variable or default PostgreSQL
-        DATABASE_URL = database_url or os.environ.get('DATABASE_URL') or 'postgresql://yang:nNTm6Q4un1aF25fmVvl7YqSzWffyznIe@dpg-d0t3rlili9vc739k84gg-a.oregon-postgres.render.com/dg4u_tiktok_bot'
+        DATABASE_URL = database_url or os.environ.get('DATABASE_URL') or 'postgresql://de_de:PUPB8V0s2b3bvNZUblolz7d6UM9bcBzb@dpg-d1h53rffte5s739b1i40-a.oregon-postgres.render.com/dwg_analyzer_pro'
         
         try:
             # Try PostgreSQL connection first

@@ -1,0 +1,25 @@
+AI Architectural Space Analyzer PRO
+Professional License Agreement
+
+Copyright (c) 2024 Professional CAD Solutions
+
+This software is licensed for professional use.
+
+FEATURES:
+- Professional DWG/DXF analysis
+- AI-powered room detection
+- Construction planning tools
+- BIM integration capabilities
+- Advanced export options
+
+SYSTEM REQUIREMENTS:
+- Windows 10/11 (64-bit)
+- 4GB RAM minimum
+- 1GB available disk space
+- Internet connection for AI features
+
+SUPPORT:
+For technical support and updates, visit:
+https://github.com/rehmanul/The-DWG-Analyzer
+
+By installing this software, you agree to these terms.
