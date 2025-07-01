@@ -1,0 +1,12 @@
+[server]
+maxUploadSize = 10000
+maxMessageSize = 10000
+headless = true
+enableCORS = false
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
+serverAddress = "0.0.0.0"
