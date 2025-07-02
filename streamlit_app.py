@@ -42,8 +42,8 @@ def process_ultimate_file(uploaded_file):
     classifications = ['RESTRICTED', 'ENTREE/SORTIE', 'NO ENTREE']
     
     for i in range(zone_count):
-        base_x = (i % 3) * (10 + (file_hash[i] if i < len(file_hash) else 0) % 5)
-        base_y = (i // 3) * (8 + (file_hash[i] if i < len(file_hash) else 0) % 4)
+        base_x = (i % 3) * (10 + (ord(file_hash[i]) if i < len(file_hash) else 0) % 5)
+        base_y = (i // 3) * (8 + (ord(file_hash[i]) if i < len(file_hash) else 0) % 4)
         
         width = 8 + (int(file_hash[i*2:i*2+2], 16) if i*2+2 <= len(file_hash) else 50) % 6
         height = 6 + (int(file_hash[i*2+1:i*2+3], 16) if i*2+3 <= len(file_hash) else 30) % 4
