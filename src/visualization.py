@@ -84,8 +84,11 @@ class PlanVisualizer:
         return fig
 
     def create_interactive_plot(self, zones, analysis_results, show_zones=True, 
-                              show_boxes=True, show_labels=True, color_by_type=True):
-        """Create interactive plot with analysis results"""
+                              show_boxes=True, show_labels=True, color_by_type=True,
+                              show_entry_zones=True, show_no_entry_zones=True,
+                              show_walls=True, show_pathways=True, show_annotations=True,
+                              annotations=None):
+        """Create interactive plot with analysis results and enhanced features"""
         fig = go.Figure()
 
         if not zones:
@@ -106,6 +109,13 @@ class PlanVisualizer:
             'Hall/Auditorium': 'lightcyan',
             'Corridor': 'wheat',
             'Unknown': 'white'
+        }
+
+        # Custom colors for entry/no entry/walls zones
+        special_zone_colors = {
+            'entry': 'rgba(255, 0, 0, 0.5)',       # Red for entry/exit
+            'no_entry': 'rgba(0, 0, 255, 0.5)',    # Blue for no entry
+            'wall': 'rgba(128, 128, 128, 0.7)'     # Gray for walls
         }
 
         if show_zones:
@@ -136,26 +146,35 @@ class PlanVisualizer:
                             x_coords.append(x_coords[0])
                             y_coords.append(y_coords[0])
 
-                        # Get room type and color
-                        room_type = 'Unknown'
-                        if color_by_type and analysis_results and 'rooms' in analysis_results:
-                            zone_key = f"Zone_{i}"
-                            if zone_key in analysis_results['rooms']:
-                                room_type = analysis_results['rooms'][zone_key].get('type', 'Unknown')
-
-                        color = color_map.get(room_type, 'lightgray')
+                        # Determine fill color based on zone type and special flags
+                        fill_color = None
+                        zone_type = zone.get('zone_type', 'Unknown').lower()
+                        if zone_type == 'entry' and show_entry_zones:
+                            fill_color = special_zone_colors['entry']
+                        elif zone_type == 'no_entry' and show_no_entry_zones:
+                            fill_color = special_zone_colors['no_entry']
+                        elif zone_type == 'wall' and show_walls:
+                            fill_color = special_zone_colors['wall']
+                        else:
+                            # Default color by room type
+                            room_type = 'Unknown'
+                            if color_by_type and analysis_results and 'rooms' in analysis_results:
+                                zone_key = f"Zone_{i}"
+                                if zone_key in analysis_results['rooms']:
+                                    room_type = analysis_results['rooms'][zone_key].get('type', 'Unknown')
+                            fill_color = color_map.get(room_type, 'lightgray')
 
                         fig.add_trace(go.Scatter(
                             x=x_coords,
                             y=y_coords,
                             fill="toself",
                             mode='lines+text' if show_labels else 'lines',
-                            name=f"Zone {i}: {room_type}",
-                            fillcolor=color,
+                            name=f"Zone {i}: {zone.get('zone_type', 'Unknown')}",
+                            fillcolor=fill_color,
                             line=dict(width=2, color='black'),
                             text=f"Zone {i}" if show_labels else None,
                             textposition="middle center",
-                            hovertemplate=f"<b>Zone {i}</b><br>Type: {room_type}<br>Area: {zone.get('area', 0):.1f} m²<extra></extra>"
+                            hovertemplate=f"<b>Zone {i}</b><br>Type: {zone.get('zone_type', 'Unknown')}<br>Area: {zone.get('area', 0):.1f} m²<extra></extra>"
                         ))
 
                 except Exception as e:
@@ -183,6 +202,49 @@ class PlanVisualizer:
                                 box_count += 1
                         except Exception as e:
                             continue
+
+        # Add pathway/flow visualization with arrows
+        if show_pathways and analysis_results and 'spatial_relationships' in analysis_results:
+            pathways = analysis_results['spatial_relationships'].get('pathways', [])
+            for path in pathways:
+                try:
+                    x_coords = [point[0] for point in path['points']]
+                    y_coords = [point[1] for point in path['points']]
+                    fig.add_trace(go.Scatter(
+                        x=x_coords,
+                        y=y_coords,
+                        mode='lines+markers',
+                        line=dict(color='green', width=3, dash='dot'),
+                        marker=dict(symbol='arrow-up', size=10, angleref='previous'),
+                        name='Pathway',
+                        hoverinfo='none',
+                        showlegend=False
+                    ))
+                except Exception as e:
+                    continue
+
+        # Add annotations if provided
+        if show_annotations and annotations:
+            for annotation in annotations:
+                try:
+                    x = annotation.get('x')
+                    y = annotation.get('y')
+                    text = annotation.get('text')
+                    if x is not None and y is not None and text:
+                        fig.add_annotation(
+                            x=x,
+                            y=y,
+                            text=text,
+                            showarrow=True,
+                            arrowhead=2,
+                            ax=0,
+                            ay=-40,
+                            bgcolor='yellow',
+                            bordercolor='black',
+                            borderwidth=1
+                        )
+                except Exception as e:
+                    continue
 
         fig.update_layout(
             title="Interactive Floor Plan Analysis",
