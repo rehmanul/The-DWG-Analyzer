@@ -51,7 +51,7 @@ import os
 os.environ['DATABASE_URL'] = 'postgresql://de_de:PUPB8V0s2b3bvNZUblolz7d6UM9bcBzb@dpg-d1h53rffte5s739b1i40-a.oregon-postgres.render.com/dwg_analyzer_pro'
 
 # Configure Gemini AI
-os.environ['GEMINI_API_KEY'] = 'AIzaSyBvKw_7wGGFZWZpEr8vN2xQJ3kL9mP4sT8'
+os.environ['GEMINI_API_KEY'] = 'AIzaSyBR14fIPyU5LkyTo9lNLopP4LZN9IlVIGs'
 from src.ai_integration import GeminiAIAnalyzer
 from src.construction_planner import ConstructionPlanner
 # Enterprise construction planning - no imports needed

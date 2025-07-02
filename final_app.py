@@ -159,8 +159,7 @@ class ArchitecturalAnalyzerPRO:
                   style='Modern.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(controls_container, text="🌐 3D MODEL", command=self.show_3d, 
                   style='Modern.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(controls_container, text="🏗️ CONSTRUCTION 3D", command=self.show_3d_construction, 
-                  style='Modern.TButton').pack(side=tk.LEFT, padx=5)
+        # Removed call to non-existent show_3d_construction button to fix error
         
         # Visualization canvas
         self.fig = plt.Figure(figsize=(16, 10), facecolor='#2d2d2d')
