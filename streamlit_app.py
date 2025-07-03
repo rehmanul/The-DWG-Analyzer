@@ -71,82 +71,70 @@ def process_enterprise_file(uploaded_file):
         else:
             raise Exception(f"Unsupported file type: {Path(file_name).suffix}")
             
-            # Initialize layout engine
-            layout_engine = IlotLayoutEngine()
-            
-            # Define îlot requirements based on detected rooms
-            ilot_requirements = [
-                {'profile': 'standard_office', 'quantity': 3},
-                {'profile': 'executive_office', 'quantity': 1},
-                {'profile': 'meeting_room', 'quantity': 2},
-                {'profile': 'collaboration_zone', 'quantity': 1},
-                {'profile': 'storage_unit', 'quantity': 2}
-            ]
-            
-            # Extract room geometry (use first detected room or create default)
-            rooms = dxf_data.get('rooms', [])
-            if rooms:
-                room_geometry = rooms[0]['geometry']
-            else:
-                # Create default room from walls
-                walls = dxf_data.get('walls', [])
-                if walls:
-                    all_points = []
-                    for wall in walls:
-                        if 'start_point' in wall:
-                            all_points.extend([wall['start_point'], wall['end_point']])
-                        elif 'points' in wall:
-                            all_points.extend(wall['points'])
-                    
-                    if len(all_points) >= 3:
-                        # Create bounding rectangle
-                        xs = [p[0] for p in all_points]
-                        ys = [p[1] for p in all_points]
-                        min_x, max_x = min(xs), max(xs)
-                        min_y, max_y = min(ys), max(ys)
-                        room_geometry = [
-                            (min_x, min_y), (max_x, min_y),
-                            (max_x, max_y), (min_x, max_y)
-                        ]
-                    else:
-                        # Default room
-                        room_geometry = [(0, 0), (2000, 0), (2000, 1500), (0, 1500)]
-                else:
-                    room_geometry = [(0, 0), (2000, 0), (2000, 1500), (0, 1500)]
-            
-            # Generate layout plan
-            layout_data = layout_engine.generate_layout_plan(
-                room_geometry=room_geometry,
-                walls=dxf_data.get('walls', []),
-                entrances=dxf_data.get('entrances_exits', []),
-                restricted_areas=dxf_data.get('restricted_areas', []),
-                ilot_requirements=ilot_requirements
-            )
-            
-            # Clean up temporary file
-            os.unlink(temp_file_path)
-            
-            return {
-                'dxf_data': dxf_data,
-                'layout_data': layout_data,
-                'file_info': {
-                    'name': uploaded_file.name,
-                    'size': len(file_bytes),
-                    'type': 'DXF/DWG'
-                }
-            }
+        # Initialize layout engine
+        layout_engine = IlotLayoutEngine()
         
+        # Define îlot requirements based on detected rooms
+        ilot_requirements = [
+            {'profile': 'standard_office', 'quantity': 3},
+            {'profile': 'executive_office', 'quantity': 1},
+            {'profile': 'meeting_room', 'quantity': 2},
+            {'profile': 'collaboration_zone', 'quantity': 1},
+            {'profile': 'storage_unit', 'quantity': 2}
+        ]
+        
+        # Extract room geometry (use first detected room or create default)
+        rooms = dxf_data.get('rooms', [])
+        if rooms:
+            room_geometry = rooms[0]['geometry'] if 'geometry' in rooms[0] else rooms[0].get('points', [(0, 0), (2000, 0), (2000, 1500), (0, 1500)])
         else:
-            # For non-DXF files, create basic analysis
-            return {
-                'dxf_data': {'walls': [], 'restricted_areas': [], 'entrances_exits': [], 'rooms': []},
-                'layout_data': {'ilots': [], 'corridors': {}, 'layout_metrics': {}},
-                'file_info': {
-                    'name': uploaded_file.name,
-                    'size': len(file_bytes),
-                    'type': 'Other'
-                }
+            # Create default room from walls
+            walls = dxf_data.get('walls', [])
+            if walls:
+                all_points = []
+                for wall in walls:
+                    if 'start_point' in wall:
+                        all_points.extend([wall['start_point'], wall['end_point']])
+                    elif 'points' in wall:
+                        all_points.extend(wall['points'])
+                
+                if len(all_points) >= 3:
+                    # Create bounding rectangle
+                    xs = [p[0] for p in all_points]
+                    ys = [p[1] for p in all_points]
+                    min_x, max_x = min(xs), max(xs)
+                    min_y, max_y = min(ys), max(ys)
+                    room_geometry = [
+                        (min_x, min_y), (max_x, min_y),
+                        (max_x, max_y), (min_x, max_y)
+                    ]
+                else:
+                    # Default room
+                    room_geometry = [(0, 0), (2000, 0), (2000, 1500), (0, 1500)]
+            else:
+                room_geometry = [(0, 0), (2000, 0), (2000, 1500), (0, 1500)]
+        
+        # Generate layout plan
+        layout_data = layout_engine.generate_layout_plan(
+            room_geometry=room_geometry,
+            walls=dxf_data.get('walls', []),
+            entrances=dxf_data.get('entrances_exits', []),
+            restricted_areas=dxf_data.get('restricted_areas', []),
+            ilot_requirements=ilot_requirements
+        )
+        
+        # Clean up temporary file
+        os.unlink(temp_file_path)
+        
+        return {
+            'dxf_data': dxf_data,
+            'layout_data': layout_data,
+            'file_info': {
+                'name': uploaded_file.name,
+                'size': len(file_bytes),
+                'type': 'DXF/DWG'
             }
+        }
     
     except Exception as e:
         st.error(f"Enterprise processing failed: {str(e)}")
