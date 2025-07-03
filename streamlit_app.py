@@ -28,6 +28,8 @@ if 'enterprise_data' not in st.session_state:
     st.session_state.enterprise_data = None
 if 'file_processed' not in st.session_state:
     st.session_state.file_processed = False
+if 'zones' not in st.session_state:
+    st.session_state.zones = []
 
 def process_enterprise_file(uploaded_file):
     """Process uploaded file with enterprise-level precision"""
@@ -49,9 +51,25 @@ def process_enterprise_file(uploaded_file):
         # Initialize enterprise parser
         parser = EnterpriseDXFParser()
         
-        # Parse DXF file with enterprise precision
-        if file_name.endswith(('.dxf', '.dwg')):
+        # Parse file with appropriate parser based on type
+        if file_name.endswith('.dxf'):
+            # DXF files - use Enterprise DXF parser
             dxf_data = parser.parse_dxf_file(temp_file_path)
+        elif file_name.endswith('.dwg'):
+            # DWG files - use Enhanced DWG parser instead
+            from src.enhanced_dwg_parser import EnhancedDWGParser
+            dwg_parser = EnhancedDWGParser()
+            result = dwg_parser.parse_file(temp_file_path)
+            
+            # Convert to expected format
+            dxf_data = {
+                'walls': [],
+                'restricted_areas': [],
+                'entrances_exits': [],
+                'rooms': result.get('zones', [])
+            }
+        else:
+            raise Exception(f"Unsupported file type: {Path(file_name).suffix}")
             
             # Initialize layout engine
             layout_engine = IlotLayoutEngine()
