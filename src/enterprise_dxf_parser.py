@@ -12,7 +12,10 @@ from sklearn.cluster import DBSCAN
 import networkx as nx
 
 class EnterpriseDXFParser:
-    """Enterprise-grade DXF parser with precise architectural element detection"""
+    """Enterprise-grade DXF parser with precise architectural element detection
+    
+    NOTE: This parser only handles DXF files. For DWG files, use a different parser.
+    """
     
     def __init__(self):
         self.wall_colors = [1, 2, 3, 4, 5, 6, 7, 8, 9]  # AutoCAD standard colors for walls
@@ -23,6 +26,10 @@ class EnterpriseDXFParser:
         
     def parse_dxf_file(self, file_path: str) -> Dict[str, Any]:
         """Parse DXF file with enterprise-level precision"""
+        # Validate that this is actually a DXF file
+        if not file_path.lower().endswith('.dxf'):
+            raise Exception(f"File '{file_path}' is not a DXF file. Enterprise DXF parser only handles DXF files.")
+            
         try:
             doc = ezdxf.readfile(file_path)
             modelspace = doc.modelspace()

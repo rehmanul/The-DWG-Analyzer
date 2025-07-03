@@ -3,7 +3,7 @@ import tempfile
 import os
 import subprocess
 import shutil
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pathlib import Path
 from shapely.geometry import Polygon, Point
 
@@ -61,29 +61,29 @@ class DWGParser:
                 # Let it try DXF parsing methods below
                 print(f"DWG file {filename} will be processed with DXF methods")
 
-            # Try to read as DXF file (works for both DXF and some DWG)
+            # Handle DXF and DWG files differently
             doc = None
-            try:
-                doc = ezdxf.readfile(temp_file_path)
-                print(f"Successfully opened {filename} as DXF")
-            except ezdxf.DXFStructureError as e:
-                print(f"DXF Structure Error, trying recovery: {e}")
+            if file_ext == '.dxf':
+                # DXF files - use ezdxf directly
                 try:
-                    doc = ezdxf.recover.readfile(temp_file_path)
-                    print(f"Recovery successful for {filename}")
-                except Exception as recovery_error:
-                    print(f"Recovery failed: {recovery_error}")
-                    # Don't immediately fail - return empty list to let caller handle
-                    return []
-            except Exception as e:
-                print(f"Cannot read {filename} as DXF: {e}")
-                # For DWG files that can't be read as DXF, return empty list
-                if file_ext == '.dwg':
-                    print(f"DWG file {filename} requires conversion to DXF format")
-                    return []
-                else:
-                    # For DXF files, this is a real error
+                    doc = ezdxf.readfile(temp_file_path)
+                    print(f"Successfully opened {filename} as DXF")
+                except ezdxf.DXFStructureError as e:
+                    print(f"DXF Structure Error, trying recovery: {e}")
+                    try:
+                        doc = ezdxf.recover.readfile(temp_file_path)
+                        print(f"Recovery successful for {filename}")
+                    except Exception as recovery_error:
+                        print(f"DXF recovery failed: {recovery_error}")
+                        return []
+                except Exception as e:
+                    print(f"Cannot read DXF file {filename}: {e}")
                     raise Exception(f"Cannot read DXF file {filename}: {str(e)}")
+            elif file_ext == '.dwg':
+                # DWG files - ezdxf cannot read DWG directly
+                print(f"DWG file {filename} cannot be read by ezdxf (DXF library)")
+                print(f"DWG files require conversion to DXF format or specialized DWG parser")
+                return []
             
             if not doc:
                 return []
@@ -165,24 +165,31 @@ class DWGParser:
         
         print(f"Attempting to parse DWG file: {filename}")
         
-        # Method 1: Try ezdxf with recovery mode
-        try:
-            print("Method 1: Trying ezdxf recovery mode...")
-            doc = ezdxf.recover.readfile(file_path)
-            zones = self._extract_zones_from_ezdxf(doc)
-            if zones:
-                print(f"Successfully parsed {len(zones)} zones using ezdxf recovery")
-                return zones
-        except Exception as e:
-            print(f"ezdxf recovery failed: {e}")
+        # Method 1: Try ezdxf with recovery mode (only for DXF files)
+        if file_path.lower().endswith('.dxf'):
+            try:
+                print("Method 1: Trying ezdxf recovery mode on DXF file...")
+                doc = ezdxf.recover.readfile(file_path)
+                zones = self._extract_zones_from_ezdxf(doc)
+                if zones:
+                    print(f"Successfully parsed {len(zones)} zones using ezdxf recovery")
+                    return zones
+            except Exception as e:
+                print(f"ezdxf recovery failed: {e}")
+        else:
+            print("Skipping ezdxf method for DWG file (ezdxf only supports DXF)")
         
         # Method 2: Check for available conversion tools
         try:
             print("Method 2: Attempting DWG to DXF conversion...")
             converted_file = self._try_dwg_conversion(file_path)
             if converted_file:
-                doc = ezdxf.readfile(converted_file)
-                zones = self._extract_zones_from_ezdxf(doc)
+                if converted_file.lower().endswith('.dxf'):
+                    doc = ezdxf.readfile(converted_file)
+                    zones = self._extract_zones_from_ezdxf(doc)
+                else:
+                    print("Conversion did not produce a DXF file")
+                    zones = []
                 os.unlink(converted_file)  # Clean up converted file
                 if zones:
                     print(f"Successfully converted and parsed {len(zones)} zones")
@@ -224,7 +231,12 @@ class DWGParser:
         zones = []
 
         try:
-            # Try to read the DXF/DWG file
+            # Only try ezdxf for DXF files
+            if not file_path.lower().endswith('.dxf'):
+                print(f"File {file_path} is not a DXF file. This parser only handles DXF files.")
+                return []
+                
+            # Try to read the DXF file
             try:
                 doc = ezdxf.readfile(file_path)
             except ezdxf.DXFStructureError:
@@ -1046,4 +1058,26 @@ class DWGParser:
 
         except Exception as e:
             # Suppress repeated error messages for cleaner console output
+            return None
+    
+    def _try_dwg_conversion(self, file_path: str) -> Optional[str]:
+        """Try to convert DWG to DXF using available tools"""
+        try:
+            # This is a placeholder for DWG conversion
+            # In a real implementation, you would use tools like:
+            # - ODA File Converter
+            # - LibreCAD command line
+            # - FreeCAD Python API
+            # - Commercial conversion libraries
+            
+            print("DWG to DXF conversion not implemented")
+            print("To convert DWG files:")
+            print("1. Use AutoCAD: File -> Save As -> DXF")
+            print("2. Use FreeCAD: Import DWG -> Export as DXF")
+            print("3. Use LibreCAD: Open DWG -> Save As DXF")
+            print("4. Use online converters")
+            
+            return None
+        except Exception as e:
+            print(f"DWG conversion failed: {e}")
             return None

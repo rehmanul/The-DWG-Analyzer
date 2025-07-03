@@ -981,18 +981,9 @@ def load_uploaded_file(uploaded_file):
                             st.warning("⚠️ No zones detected - but file loaded successfully")
                             st.info(f"📋 File contains: {entity_count} CAD entities")
                             
-                            # Store file info for display
-                            st.session_state.file_info = {
-                                'filename': uploaded_file.name,
-                                'size_mb': file_size_mb,
-                                'entities': entity_count,
-                                'file_type': 'DXF',
-                                'status': 'loaded_no_zones'
-                            }
-                            st.session_state.zones = []
-                            st.session_state.file_loaded = True
-                            st.session_state.current_file = uploaded_file.name
-                            zones = []  # Set zones to empty array
+                            # Enterprise: No zones = failure
+                            st.error(f"Enterprise DXF parsing failed: No zones found in {uploaded_file.name}")
+                            return None
                             
                         # Cleanup and return
                         try:
@@ -1019,16 +1010,9 @@ def load_uploaded_file(uploaded_file):
                         st.warning("⚠️ No zones detected - but file processed successfully")
                         st.info(f"📋 File: {uploaded_file.name} ({file_size_mb:.1f} MB)")
                         
-                        # Store file info for display
-                        st.session_state.file_info = {
-                            'filename': uploaded_file.name,
-                            'size_mb': file_size_mb,
-                            'file_type': 'DWG',
-                            'status': 'loaded_no_zones'
-                        }
-                        st.session_state.zones = []
-                        st.session_state.file_loaded = True
-                        st.session_state.current_file = uploaded_file.name
+                        # Enterprise: No zones = failure
+                        st.error(f"Enterprise DWG parsing failed: No zones found in {uploaded_file.name}")
+                        return None
                         
                         # Cleanup and return
                         try:
@@ -1091,8 +1075,9 @@ def load_uploaded_file(uploaded_file):
                 zones = None
                 parsing_method = 'unknown'
                 
-                # Try DXF-specific parsing first for DXF files
+                # Handle DXF and DWG files differently
                 if file_ext == 'dxf':
+                    # DXF files - use ezdxf directly
                     try:
                         import ezdxf
                         doc = ezdxf.readfile(tmp_path)
@@ -1126,19 +1111,46 @@ def load_uploaded_file(uploaded_file):
                         if zones:
                             parsing_method = 'ezdxf_direct'
                             st.success(f"✅ Parsed {len(zones)} zones from DXF using direct ezdxf")
+                        else:
+                            st.info("DXF file processed - no zones detected")
+                            
                     except Exception as dxf_error:
+                        st.error(f"DXF parsing failed: {str(dxf_error)}")
                         zones = None
-                        st.info(f"Direct DXF parsing failed, trying enhanced parser...")
-                
-                # If DXF direct parsing failed or it's a DWG file, use enhanced parser
-                if not zones:
-                    enhanced_parser = EnhancedDWGParser()
-                    result = enhanced_parser.parse_file(tmp_path)
-                    
-                    if result and result.get('zones') and len(result['zones']) > 0:
-                        zones = result['zones']
-                        parsing_method = result.get('parsing_method', 'enhanced')
-                        st.success(f"✅ Parsed {len(zones)} zones using enhanced parser ({parsing_method})")
+                        
+                elif file_ext == 'dwg':
+                    # DWG files - use enhanced parser (ezdxf cannot read DWG directly)
+                    try:
+                        enhanced_parser = EnhancedDWGParser()
+                        result = enhanced_parser.parse_file(tmp_path)
+                        
+                        if result and result.get('zones') and len(result['zones']) > 0:
+                            zones = result['zones']
+                            parsing_method = result.get('parsing_method', 'enhanced')
+                            st.success(f"✅ Parsed {len(zones)} zones from DWG using enhanced parser ({parsing_method})")
+                        else:
+                            st.info("DWG file processed - no zones detected")
+                            zones = []
+                            
+                    except Exception as dwg_error:
+                        st.error(f"DWG parsing failed: {str(dwg_error)}")
+                        zones = None
+                        
+                # If parsing failed, try enhanced parser as fallback
+                if zones is None:
+                    try:
+                        enhanced_parser = EnhancedDWGParser()
+                        result = enhanced_parser.parse_file(tmp_path)
+                        
+                        if result and result.get('zones') and len(result['zones']) > 0:
+                            zones = result['zones']
+                            parsing_method = result.get('parsing_method', 'enhanced_fallback')
+                            st.success(f"✅ Parsed {len(zones)} zones using fallback parser ({parsing_method})")
+                        else:
+                            zones = []
+                    except Exception as fallback_error:
+                        st.error(f"All parsing methods failed: {str(fallback_error)}")
+                        zones = []
                 
                 # No fallbacks - real parsing only
                 if not zones:
@@ -1147,17 +1159,9 @@ def load_uploaded_file(uploaded_file):
                     st.info(f"📋 File info: {file_size_mb:.1f} MB {file_ext.upper()} file")
                     st.info("💡 This file may contain technical drawings, elevations, or details without room boundaries")
                     
-                    # Store file info even without zones
-                    st.session_state.file_info = {
-                        'filename': uploaded_file.name,
-                        'size_mb': file_size_mb,
-                        'file_type': file_ext.upper(),
-                        'status': 'processed_no_zones'
-                    }
-                    st.session_state.zones = []
-                    st.session_state.file_loaded = True
-                    st.session_state.current_file = uploaded_file.name
-                    return []  # Return empty but file is loaded
+                    # Enterprise: No zones = failure
+                    st.error(f"Enterprise processing failed: No zones found in {uploaded_file.name}")
+                    return None
                 
                 # Cleanup temp file
                 try:
