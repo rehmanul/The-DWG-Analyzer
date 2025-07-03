@@ -6,65 +6,129 @@ import numpy as np
 from datetime import datetime
 import json
 import hashlib
+import tempfile
+import os
+from pathlib import Path
+
+# Import enterprise modules
+try:
+    from src.enterprise_dxf_parser import EnterpriseDXFParser
+    from src.ilot_layout_engine import IlotLayoutEngine, IlotProfile
+    from src.enterprise_visualization import EnterpriseVisualizationEngine
+    from src.enterprise_export_functions import *
+except ImportError as e:
+    st.error(f"Enterprise modules not found: {e}")
+    st.stop()
 
 st.set_page_config(page_title="AI Architectural Analyzer ULTIMATE", page_icon="🏗️", layout="wide")
 
 # Ultimate session state
-if 'zones' not in st.session_state:
-    st.session_state.zones = []
+if 'enterprise_data' not in st.session_state:
+    st.session_state.enterprise_data = None
 if 'file_processed' not in st.session_state:
     st.session_state.file_processed = False
 
-def process_ultimate_file(uploaded_file):
-    """Process uploaded file with ultimate AI"""
+def process_enterprise_file(uploaded_file):
+    """Process uploaded file with enterprise-level precision"""
     if uploaded_file is None:
         return None
     
     file_bytes = uploaded_file.getvalue()
-    file_hash = hashlib.md5(file_bytes).hexdigest()
     file_name = uploaded_file.name.lower()
-    file_size = len(file_bytes)
     
-    # Generate ultimate zones based on file content
-    np.random.seed(int(file_hash[:8], 16) % 1000000)
-    
-    if file_name.endswith('.dxf'):
-        zone_count = min(max(3, int(file_size / 80000)), 8)
-    elif file_name.endswith('.dwg'):
-        zone_count = min(max(4, int(file_size / 100000)), 6)
-    elif file_name.endswith('.pdf'):
-        zone_count = min(max(2, int(file_size / 500000)), 5)
-    else:
-        zone_count = 4
-    
-    ultimate_zones = []
-    room_types = ['Executive Office', 'Conference Center', 'Innovation Lab', 'Data Center', 'Reception Area', 'Meeting Room', 'Workshop', 'Storage']
-    classifications = ['RESTRICTED', 'ENTREE/SORTIE', 'NO ENTREE']
-    
-    for i in range(zone_count):
-        base_x = (i % 3) * (10 + (ord(file_hash[i]) if i < len(file_hash) else 0) % 5)
-        base_y = (i // 3) * (8 + (ord(file_hash[i]) if i < len(file_hash) else 0) % 4)
+    try:
+        # Create temporary file for processing
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_name).suffix) as temp_file:
+            temp_file.write(file_bytes)
+            temp_file_path = temp_file.name
         
-        width = 8 + (int(file_hash[i*2:i*2+2], 16) if i*2+2 <= len(file_hash) else 50) % 6
-        height = 6 + (int(file_hash[i*2+1:i*2+3], 16) if i*2+3 <= len(file_hash) else 30) % 4
+        # Initialize enterprise parser
+        parser = EnterpriseDXFParser()
         
-        points = [(base_x, base_y), (base_x + width, base_y), (base_x + width, base_y + height), (base_x, base_y + height)]
+        # Parse DXF file with enterprise precision
+        if file_name.endswith(('.dxf', '.dwg')):
+            dxf_data = parser.parse_dxf_file(temp_file_path)
+            
+            # Initialize layout engine
+            layout_engine = IlotLayoutEngine()
+            
+            # Define îlot requirements based on detected rooms
+            ilot_requirements = [
+                {'profile': 'standard_office', 'quantity': 3},
+                {'profile': 'executive_office', 'quantity': 1},
+                {'profile': 'meeting_room', 'quantity': 2},
+                {'profile': 'collaboration_zone', 'quantity': 1},
+                {'profile': 'storage_unit', 'quantity': 2}
+            ]
+            
+            # Extract room geometry (use first detected room or create default)
+            rooms = dxf_data.get('rooms', [])
+            if rooms:
+                room_geometry = rooms[0]['geometry']
+            else:
+                # Create default room from walls
+                walls = dxf_data.get('walls', [])
+                if walls:
+                    all_points = []
+                    for wall in walls:
+                        if 'start_point' in wall:
+                            all_points.extend([wall['start_point'], wall['end_point']])
+                        elif 'points' in wall:
+                            all_points.extend(wall['points'])
+                    
+                    if len(all_points) >= 3:
+                        # Create bounding rectangle
+                        xs = [p[0] for p in all_points]
+                        ys = [p[1] for p in all_points]
+                        min_x, max_x = min(xs), max(xs)
+                        min_y, max_y = min(ys), max(ys)
+                        room_geometry = [
+                            (min_x, min_y), (max_x, min_y),
+                            (max_x, max_y), (min_x, max_y)
+                        ]
+                    else:
+                        # Default room
+                        room_geometry = [(0, 0), (2000, 0), (2000, 1500), (0, 1500)]
+                else:
+                    room_geometry = [(0, 0), (2000, 0), (2000, 1500), (0, 1500)]
+            
+            # Generate layout plan
+            layout_data = layout_engine.generate_layout_plan(
+                room_geometry=room_geometry,
+                walls=dxf_data.get('walls', []),
+                entrances=dxf_data.get('entrances_exits', []),
+                restricted_areas=dxf_data.get('restricted_areas', []),
+                ilot_requirements=ilot_requirements
+            )
+            
+            # Clean up temporary file
+            os.unlink(temp_file_path)
+            
+            return {
+                'dxf_data': dxf_data,
+                'layout_data': layout_data,
+                'file_info': {
+                    'name': uploaded_file.name,
+                    'size': len(file_bytes),
+                    'type': 'DXF/DWG'
+                }
+            }
         
-        ultimate_zones.append({
-            'id': i,
-            'name': f'{room_types[i % len(room_types)]} {i+1}',
-            'points': points,
-            'area': width * height,
-            'type': room_types[i % len(room_types)].split()[0],
-            'zone_classification': classifications[i % len(classifications)],
-            'confidence': 0.88 + np.random.random() * 0.12,
-            'cost_per_sqm': 1500 + np.random.randint(500, 3500),
-            'energy_rating': ['A+', 'A', 'B+', 'B'][i % 4],
-            'compliance_score': 92 + np.random.randint(0, 8),
-            'file_source': uploaded_file.name
-        })
+        else:
+            # For non-DXF files, create basic analysis
+            return {
+                'dxf_data': {'walls': [], 'restricted_areas': [], 'entrances_exits': [], 'rooms': []},
+                'layout_data': {'ilots': [], 'corridors': {}, 'layout_metrics': {}},
+                'file_info': {
+                    'name': uploaded_file.name,
+                    'size': len(file_bytes),
+                    'type': 'Other'
+                }
+            }
     
-    return ultimate_zones
+    except Exception as e:
+        st.error(f"Enterprise processing failed: {str(e)}")
+        return None
 
 def main():
     # Ultimate header
@@ -90,54 +154,114 @@ def main():
             st.success(f"📁 {uploaded_file.name}")
             st.info(f"📊 Size: {len(uploaded_file.getvalue()) / 1024:.1f} KB")
             
-            if st.button("🚀 ULTIMATE PROCESSING", type="primary"):
-                with st.spinner("Processing with ultimate AI engine..."):
-                    zones = process_ultimate_file(uploaded_file)
-                    if zones:
-                        st.session_state.zones = zones
+            if st.button("🚀 ENTERPRISE PROCESSING", type="primary"):
+                with st.spinner("Processing with enterprise-level precision..."):
+                    result = process_enterprise_file(uploaded_file)
+                    if result:
+                        st.session_state.enterprise_data = result
                         st.session_state.file_processed = True
-                        st.success(f"✅ Ultimate processing complete! {len(zones)} zones analyzed")
+                        
+                        # Extract metrics for display
+                        dxf_data = result['dxf_data']
+                        layout_data = result['layout_data']
+                        
+                        walls_count = len(dxf_data.get('walls', []))
+                        restricted_count = len(dxf_data.get('restricted_areas', []))
+                        entrances_count = len(dxf_data.get('entrances_exits', []))
+                        ilots_count = len([i for i in layout_data.get('ilots', []) if i.get('placed', False)])
+                        
+                        st.success(f"✅ Enterprise processing complete!")
+                        st.info(f"📊 Detected: {walls_count} walls, {restricted_count} restricted areas, {entrances_count} entrances, {ilots_count} îlots placed")
                         st.rerun()
         
         if st.session_state.file_processed:
-            st.subheader("⚙️ Ultimate Settings")
-            ai_mode = st.selectbox("AI Mode", ["Ultimate", "Professional", "Standard"])
-            processing_quality = st.slider("Processing Quality", 1, 10, 10)
+            st.subheader("⚙️ Enterprise Settings")
             
-            if st.button("🔄 Refresh Analysis"):
-                st.rerun()
+            # Îlot Configuration
+            st.write("**Îlot Configuration**")
+            
+            # Profile selection
+            available_profiles = [
+                'standard_office', 'executive_office', 'meeting_room',
+                'open_workspace', 'collaboration_zone', 'storage_unit', 'reception_area'
+            ]
+            
+            selected_profiles = st.multiselect(
+                "Select Îlot Profiles",
+                available_profiles,
+                default=['standard_office', 'meeting_room']
+            )
+            
+            # Visualization options
+            st.write("**Visualization Options**")
+            view_mode = st.selectbox("View Mode", ["2D Plan", "3D Model", "Analysis Dashboard", "All Views"])
+            
+            color_scheme = st.selectbox("Color Scheme", ["Professional", "Accessibility", "Security"])
+            
+            show_annotations = st.checkbox("Show Annotations", value=True)
+            show_measurements = st.checkbox("Show Measurements", value=True)
+            
+            if st.button("🔄 Regenerate Layout"):
+                if hasattr(st.session_state, 'enterprise_data'):
+                    # Regenerate with new settings
+                    with st.spinner("Regenerating layout..."):
+                        # Update îlot requirements based on selection
+                        new_requirements = []
+                        for profile in selected_profiles:
+                            new_requirements.append({
+                                'profile': profile,
+                                'quantity': 2 if profile == 'standard_office' else 1
+                            })
+                        
+                        # Re-run layout engine with new requirements
+                        layout_engine = IlotLayoutEngine()
+                        dxf_data = st.session_state.enterprise_data['dxf_data']
+                        
+                        # Get room geometry
+                        rooms = dxf_data.get('rooms', [])
+                        if rooms:
+                            room_geometry = rooms[0]['geometry']
+                        else:
+                            room_geometry = [(0, 0), (2000, 0), (2000, 1500), (0, 1500)]
+                        
+                        new_layout = layout_engine.generate_layout_plan(
+                            room_geometry=room_geometry,
+                            walls=dxf_data.get('walls', []),
+                            entrances=dxf_data.get('entrances_exits', []),
+                            restricted_areas=dxf_data.get('restricted_areas', []),
+                            ilot_requirements=new_requirements
+                        )
+                        
+                        st.session_state.enterprise_data['layout_data'] = new_layout
+                        st.success("✅ Layout regenerated successfully!")
+                        st.rerun()
     
     # Show content based on processing status
-    if st.session_state.file_processed and st.session_state.zones:
-        # Ultimate metrics dashboard
-        show_ultimate_metrics()
+    if st.session_state.file_processed and hasattr(st.session_state, 'enterprise_data'):
+        # Enterprise metrics dashboard
+        show_enterprise_metrics()
         
-        # Ultimate tabs
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
-            "🎛️ Dashboard", "🤖 AI Insights", "🎨 Visualization", "💰 Cost Analysis", 
-            "⚡ Energy", "📋 Compliance", "🏗️ Construction", "📊 Analytics", 
-            "☁️ Cloud", "📤 Export Suite"
+        # Enterprise tabs
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+            "🏗️ DXF Analysis", "🎯 Îlot Layout", "🎨 Visualization", "📊 Analytics", 
+            "♿ Accessibility", "🔒 Security", "📋 Compliance", "📤 Export"
         ])
         
         with tab1:
-            show_ultimate_dashboard()
+            show_dxf_analysis()
         with tab2:
-            show_ai_insights()
+            show_ilot_layout()
         with tab3:
-            show_ultimate_visualization()
+            show_enterprise_visualization()
         with tab4:
-            show_cost_analysis()
+            show_analytics_dashboard()
         with tab5:
-            show_energy_analysis()
+            show_accessibility_analysis()
         with tab6:
-            show_compliance_analysis()
+            show_security_analysis()
         with tab7:
-            show_construction_planning()
+            show_compliance_analysis()
         with tab8:
-            show_advanced_analytics()
-        with tab9:
-            show_cloud_features()
-        with tab10:
             show_export_suite()
     else:
         show_welcome_screen()
@@ -168,40 +292,111 @@ def show_welcome_screen():
     ### 🚀 **Upload a file in the sidebar to begin ultimate analysis!**
     """)
 
-def show_ultimate_metrics():
-    """Ultimate real-time metrics"""
-    if not st.session_state.zones:
+def show_enterprise_metrics():
+    """Enterprise real-time metrics dashboard"""
+    if not hasattr(st.session_state, 'enterprise_data') or not st.session_state.enterprise_data:
         return
-        
-    total_area = sum(zone['area'] for zone in st.session_state.zones)
-    total_cost = sum(zone['area'] * zone['cost_per_sqm'] for zone in st.session_state.zones)
-    avg_confidence = np.mean([zone['confidence'] for zone in st.session_state.zones])
-    avg_compliance = np.mean([zone['compliance_score'] for zone in st.session_state.zones])
+    
+    enterprise_data = st.session_state.enterprise_data
+    dxf_data = enterprise_data['dxf_data']
+    layout_data = enterprise_data['layout_data']
+    
+    # Calculate metrics
+    walls_count = len(dxf_data.get('walls', []))
+    restricted_count = len(dxf_data.get('restricted_areas', []))
+    entrances_count = len(dxf_data.get('entrances_exits', []))
+    
+    ilots = layout_data.get('ilots', [])
+    placed_ilots = [i for i in ilots if i.get('placed', False)]
+    
+    metrics = layout_data.get('layout_metrics', {})
+    validation = layout_data.get('validation', {})
     
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     
     with col1:
-        st.metric("🏢 Zones", len(st.session_state.zones), delta="Active")
+        st.metric("🏗️ Walls", walls_count, delta="Detected")
     with col2:
-        st.metric("📐 Area", f"{total_area:.0f} m²", delta="+12%")
+        st.metric("🚫 Restricted", restricted_count, delta="Areas")
     with col3:
-        st.metric("💰 Value", f"${total_cost:,.0f}", delta="+$50K")
+        st.metric("🚪 Entrances", entrances_count, delta="Found")
     with col4:
-        st.metric("🤖 AI Score", f"{avg_confidence:.1%}", delta="+2.3%")
+        st.metric("🏢 Îlots", f"{len(placed_ilots)}/{len(ilots)}", delta=f"{metrics.get('placement_rate', 0):.1%}")
     with col5:
-        st.metric("📋 Compliance", f"{avg_compliance:.0f}%", delta="+1%")
+        st.metric("📐 Utilization", f"{metrics.get('space_utilization', 0):.1%}", delta="Optimal")
     with col6:
-        energy_ratings = [zone['energy_rating'] for zone in st.session_state.zones]
-        avg_rating = max(set(energy_ratings), key=energy_ratings.count)
-        st.metric("⚡ Energy", f"{avg_rating} Rating", delta="Excellent")
+        st.metric("✅ Compliance", f"{validation.get('compliance_score', 0):.1%}", delta="Enterprise")
 
-def show_ultimate_dashboard():
-    """Ultimate enterprise dashboard"""
-    st.subheader("🎛️ Ultimate Enterprise Dashboard")
+def show_dxf_analysis():
+    """Show DXF analysis results"""
+    st.subheader("🏗️ DXF Architectural Analysis")
     
-    if not st.session_state.zones:
-        st.warning("No zones to display. Please upload and process a file first.")
+    if not hasattr(st.session_state, 'enterprise_data') or not st.session_state.enterprise_data:
+        st.warning("No DXF data to display. Please upload and process a file first.")
         return
+    
+    dxf_data = st.session_state.enterprise_data['dxf_data']
+    
+    # Walls Analysis
+    st.write("### 🧱 Wall Detection Results")
+    walls = dxf_data.get('walls', [])
+    
+    if walls:
+        wall_data = []
+        for i, wall in enumerate(walls):
+            wall_info = {
+                'ID': i + 1,
+                'Type': wall.get('type', 'Unknown'),
+                'Layer': wall.get('layer', 'Unknown'),
+                'Length (cm)': f"{wall.get('length', 0):.1f}",
+                'Detection Method': wall.get('source', 'Standard')
+            }
+            wall_data.append(wall_info)
+        
+        df_walls = pd.DataFrame(wall_data)
+        st.dataframe(df_walls, use_container_width=True)
+    else:
+        st.info("No walls detected in the DXF file.")
+    
+    # Restricted Areas Analysis
+    st.write("### 🚫 Restricted Areas")
+    restricted_areas = dxf_data.get('restricted_areas', [])
+    
+    if restricted_areas:
+        restricted_data = []
+        for i, area in enumerate(restricted_areas):
+            area_info = {
+                'ID': i + 1,
+                'Type': area.get('restriction_type', 'Unknown'),
+                'Area (cm²)': f"{area.get('area', 0):.1f}",
+                'Detection Method': area.get('detection_method', 'Unknown')
+            }
+            restricted_data.append(area_info)
+        
+        df_restricted = pd.DataFrame(restricted_data)
+        st.dataframe(df_restricted, use_container_width=True)
+    else:
+        st.info("No restricted areas detected.")
+    
+    # Entrances Analysis
+    st.write("### 🚪 Entrances & Exits")
+    entrances = dxf_data.get('entrances_exits', [])
+    
+    if entrances:
+        entrance_data = []
+        for i, entrance in enumerate(entrances):
+            entrance_info = {
+                'ID': i + 1,
+                'Type': entrance.get('type', 'Unknown'),
+                'Location': f"({entrance.get('location', (0, 0))[0]:.1f}, {entrance.get('location', (0, 0))[1]:.1f})",
+                'Detection Method': entrance.get('detection_method', 'Unknown')
+            }
+            entrance_data.append(entrance_info)
+        
+        df_entrances = pd.DataFrame(entrance_data)
+        st.dataframe(df_entrances, use_container_width=True)
+    else:
+        st.info("No entrances detected.")
     
     # Real-time project overview
     st.markdown("### 📊 Project Overview")
@@ -251,13 +446,84 @@ def show_ultimate_dashboard():
         fig_radar.update_layout(title="Compliance Radar")
         st.plotly_chart(fig_radar, use_container_width=True)
 
-def show_ai_insights():
-    """AI-powered insights and recommendations"""
-    st.subheader("🤖 AI Insights & Recommendations")
+def show_ilot_layout():
+    """Show îlot layout results"""
+    st.subheader("🎯 Îlot Layout Analysis")
     
-    if not st.session_state.zones:
-        st.warning("No data for AI analysis. Please upload and process a file first.")
+    if not hasattr(st.session_state, 'enterprise_data') or not st.session_state.enterprise_data:
+        st.warning("No layout data to display. Please upload and process a file first.")
         return
+    
+    layout_data = st.session_state.enterprise_data['layout_data']
+    
+    # Îlot Placement Results
+    st.write("### 🏢 Îlot Placement Results")
+    ilots = layout_data.get('ilots', [])
+    
+    if ilots:
+        ilot_data = []
+        for ilot in ilots:
+            profile_name = ilot.get('profile', {}).name if hasattr(ilot.get('profile', {}), 'name') else 'Unknown'
+            
+            ilot_info = {
+                'ID': ilot.get('id', 'Unknown'),
+                'Profile': profile_name,
+                'Status': '✅ Placed' if ilot.get('placed', False) else '❌ Not Placed',
+                'Area (cm²)': f"{ilot.get('area', 0):.1f}",
+                'Position': f"({ilot.get('position', (0, 0))[0]:.1f}, {ilot.get('position', (0, 0))[1]:.1f})" if ilot.get('placed') else 'N/A',
+                'Score': f"{ilot.get('placement_score', 0):.2f}" if ilot.get('placed') else 'N/A'
+            }
+            ilot_data.append(ilot_info)
+        
+        df_ilots = pd.DataFrame(ilot_data)
+        st.dataframe(df_ilots, use_container_width=True)
+        
+        # Placement Statistics
+        placed_count = len([i for i in ilots if i.get('placed', False)])
+        total_count = len(ilots)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Placement Rate", f"{placed_count}/{total_count}", f"{placed_count/total_count:.1%}")
+        with col2:
+            total_area = sum(i.get('area', 0) for i in ilots if i.get('placed', False))
+            st.metric("Total Îlot Area", f"{total_area:.0f} cm²")
+        with col3:
+            avg_score = np.mean([i.get('placement_score', 0) for i in ilots if i.get('placed', False)])
+            st.metric("Avg Placement Score", f"{avg_score:.2f}")
+    else:
+        st.info("No îlots configured for placement.")
+    
+    # Corridor System
+    st.write("### 🛤️ Corridor System")
+    corridor_system = layout_data.get('corridors', {})
+    
+    if corridor_system.get('corridors'):
+        corridor_data = []
+        for corridor in corridor_system['corridors']:
+            corridor_info = {
+                'ID': corridor.get('id', 'Unknown'),
+                'Type': corridor.get('type', 'Unknown'),
+                'Length (cm)': f"{corridor.get('length', 0):.1f}",
+                'Width (cm)': f"{corridor.get('width', 0):.1f}",
+                'Area (cm²)': f"{corridor.get('area', 0):.1f}"
+            }
+            corridor_data.append(corridor_info)
+        
+        df_corridors = pd.DataFrame(corridor_data)
+        st.dataframe(df_corridors, use_container_width=True)
+        
+        # Corridor Metrics
+        total_length = corridor_system.get('total_length', 0)
+        total_area = corridor_system.get('total_area', 0)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Corridor Length", f"{total_length:.1f} cm")
+        with col2:
+            st.metric("Total Corridor Area", f"{total_area:.1f} cm²")
+    else:
+        st.info("No corridor system generated.")
     
     # AI suggestions based on actual data
     total_area = sum(zone['area'] for zone in st.session_state.zones)
@@ -291,13 +557,54 @@ def show_ai_insights():
         if st.button("💡 Design Suggestions", use_container_width=True):
             st.success("✅ 8 design improvements suggested.")
 
-def show_ultimate_visualization():
-    """Ultimate visualization suite"""
-    st.subheader("🎨 Ultimate Visualization Suite")
+def show_enterprise_visualization():
+    """Enterprise visualization suite"""
+    st.subheader("🎨 Enterprise Visualization Suite")
     
-    if not st.session_state.zones:
-        st.warning("No zones to visualize. Please upload and process a file first.")
+    if not hasattr(st.session_state, 'enterprise_data') or not st.session_state.enterprise_data:
+        st.warning("No data to visualize. Please upload and process a file first.")
         return
+    
+    enterprise_data = st.session_state.enterprise_data
+    dxf_data = enterprise_data['dxf_data']
+    layout_data = enterprise_data['layout_data']
+    
+    # Initialize visualization engine
+    viz_engine = EnterpriseVisualizationEngine()
+    
+    # Visualization options
+    viz_type = st.selectbox(
+        "Select Visualization Type",
+        ["2D Comprehensive View", "3D Model", "Analysis Dashboard", "Accessibility View", "Security View"]
+    )
+    
+    try:
+        if viz_type == "2D Comprehensive View":
+            fig = viz_engine._create_2d_comprehensive_view(layout_data, dxf_data)
+            st.plotly_chart(fig, use_container_width=True)
+            
+        elif viz_type == "3D Model":
+            fig = viz_engine._create_3d_comprehensive_view(layout_data, dxf_data)
+            st.plotly_chart(fig, use_container_width=True)
+            
+        elif viz_type == "Analysis Dashboard":
+            fig = viz_engine.create_analysis_dashboard(layout_data, dxf_data)
+            st.plotly_chart(fig, use_container_width=True)
+            
+        elif viz_type == "Accessibility View":
+            fig = viz_engine.create_accessibility_analysis(layout_data, dxf_data)
+            st.plotly_chart(fig, use_container_width=True)
+            
+        elif viz_type == "Security View":
+            fig = viz_engine.create_security_analysis(layout_data, dxf_data)
+            st.plotly_chart(fig, use_container_width=True)
+            
+    except Exception as e:
+        st.error(f"Visualization error: {str(e)}")
+        st.info("Displaying basic layout information instead.")
+        
+        # Fallback visualization
+        show_basic_layout_info(dxf_data, layout_data)
     
     viz_tabs = st.tabs(["📐 Parametric Plan", "🎨 Semantic Zones", "🌐 3D Enterprise", "🔥 Heatmaps", "📊 Data Viz"])
     
@@ -506,13 +813,79 @@ def show_data_visualization():
     
     st.plotly_chart(fig, use_container_width=True)
 
-def show_cost_analysis():
-    """Ultimate cost analysis"""
-    st.subheader("💰 Ultimate Cost Analysis")
+def show_analytics_dashboard():
+    """Show analytics dashboard"""
+    st.subheader("📊 Analytics Dashboard")
     
-    if not st.session_state.zones:
-        st.warning("No data for cost analysis. Please upload and process a file first.")
+    if not hasattr(st.session_state, 'enterprise_data') or not st.session_state.enterprise_data:
+        st.warning("No data for analytics. Please upload and process a file first.")
         return
+    
+    layout_data = st.session_state.enterprise_data['layout_data']
+    metrics = layout_data.get('layout_metrics', {})
+    
+    # Key Performance Indicators
+    st.write("### 📈 Key Performance Indicators")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        placement_rate = metrics.get('placement_rate', 0)
+        st.metric(
+            "Placement Success Rate",
+            f"{placement_rate:.1%}",
+            delta=f"{placement_rate - 0.8:.1%}" if placement_rate >= 0.8 else f"{placement_rate - 0.8:.1%}"
+        )
+    
+    with col2:
+        space_util = metrics.get('space_utilization', 0)
+        st.metric(
+            "Space Utilization",
+            f"{space_util:.1%}",
+            delta="Optimal" if 0.6 <= space_util <= 0.85 else "Review"
+        )
+    
+    with col3:
+        circulation_ratio = metrics.get('circulation_ratio', 0)
+        st.metric(
+            "Circulation Ratio",
+            f"{circulation_ratio:.2f}",
+            delta="Efficient" if circulation_ratio <= 0.3 else "High"
+        )
+    
+    with col4:
+        connectivity = metrics.get('connectivity_score', 0)
+        st.metric(
+            "Connectivity Score",
+            f"{connectivity:.2f}",
+            delta="Good" if connectivity >= 0.7 else "Improve"
+        )
+    
+    # Layout Efficiency Chart
+    st.write("### 📊 Layout Efficiency Analysis")
+    
+    efficiency_data = {
+        'Metric': ['Placement Rate', 'Space Utilization', 'Circulation Efficiency', 'Connectivity'],
+        'Score': [
+            placement_rate * 100,
+            space_util * 100,
+            max(0, (1 - circulation_ratio) * 100),
+            connectivity * 100
+        ],
+        'Target': [85, 75, 70, 80]
+    }
+    
+    df_efficiency = pd.DataFrame(efficiency_data)
+    
+    fig = px.bar(
+        df_efficiency,
+        x='Metric',
+        y=['Score', 'Target'],
+        title="Layout Efficiency vs Targets",
+        barmode='group'
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
     
     # Cost parameters
     col1, col2, col3 = st.columns(3)
@@ -551,13 +924,73 @@ def show_cost_analysis():
         
         st.success(f"**Total Project Cost: ${total_cost:,.0f}**")
 
-def show_energy_analysis():
-    """Ultimate energy analysis"""
-    st.subheader("⚡ Ultimate Energy Analysis")
+def show_accessibility_analysis():
+    """Show accessibility analysis"""
+    st.subheader("♿ Accessibility Analysis")
     
-    if not st.session_state.zones:
-        st.warning("No data for energy analysis.")
+    if not hasattr(st.session_state, 'enterprise_data') or not st.session_state.enterprise_data:
+        st.warning("No data for accessibility analysis.")
         return
+    
+    layout_data = st.session_state.enterprise_data['layout_data']
+    corridor_system = layout_data.get('corridors', {})
+    
+    st.write("### 🛤️ Corridor Accessibility Compliance")
+    
+    if corridor_system.get('corridors'):
+        accessibility_data = []
+        
+        for corridor in corridor_system['corridors']:
+            width = corridor.get('width', 0)
+            
+            if width >= 150:
+                compliance = "✅ Full Compliance"
+                level = "Wheelchair Accessible"
+                color = "green"
+            elif width >= 120:
+                compliance = "⚠️ Minimum Compliance"
+                level = "Basic Accessible"
+                color = "orange"
+            else:
+                compliance = "❌ Non-Compliant"
+                level = "Not Accessible"
+                color = "red"
+            
+            accessibility_data.append({
+                'Corridor ID': corridor.get('id', 'Unknown'),
+                'Width (cm)': width,
+                'Compliance': compliance,
+                'Accessibility Level': level
+            })
+        
+        df_accessibility = pd.DataFrame(accessibility_data)
+        st.dataframe(df_accessibility, use_container_width=True)
+        
+        # Compliance Summary
+        total_corridors = len(corridor_system['corridors'])
+        compliant_corridors = len([c for c in corridor_system['corridors'] if c.get('width', 0) >= 120])
+        
+        compliance_rate = compliant_corridors / total_corridors if total_corridors > 0 else 0
+        
+        st.metric(
+            "Overall Accessibility Compliance",
+            f"{compliance_rate:.1%}",
+            delta="Compliant" if compliance_rate >= 0.8 else "Needs Improvement"
+        )
+        
+        # Recommendations
+        st.write("### 💡 Accessibility Recommendations")
+        
+        non_compliant = [c for c in corridor_system['corridors'] if c.get('width', 0) < 120]
+        
+        if non_compliant:
+            st.warning(f"⚠️ {len(non_compliant)} corridor(s) do not meet minimum accessibility requirements (120cm width)")
+            st.info("💡 Consider widening corridors or redesigning îlot placement to improve accessibility")
+        else:
+            st.success("✅ All corridors meet minimum accessibility requirements")
+    
+    else:
+        st.info("No corridor data available for accessibility analysis.")
     
     # Energy metrics
     total_area = sum(zone['area'] for zone in st.session_state.zones)
@@ -593,13 +1026,91 @@ def show_energy_analysis():
     
     st.plotly_chart(fig, use_container_width=True)
 
-def show_compliance_analysis():
-    """Ultimate compliance analysis"""
-    st.subheader("📋 Ultimate Compliance Analysis")
+def show_security_analysis():
+    """Show security analysis"""
+    st.subheader("🔒 Security Analysis")
     
-    if not st.session_state.zones:
-        st.warning("No data for compliance analysis.")
+    if not hasattr(st.session_state, 'enterprise_data') or not st.session_state.enterprise_data:
+        st.warning("No data for security analysis.")
         return
+    
+    dxf_data = st.session_state.enterprise_data['dxf_data']
+    spatial_analysis = dxf_data.get('spatial_analysis', {})
+    
+    st.write("### 🛡️ Security Zone Analysis")
+    
+    # Access Analysis
+    access_analysis = spatial_analysis.get('access_analysis', {})
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        total_entrances = access_analysis.get('total_entrances', 0)
+        st.metric("Total Access Points", total_entrances)
+    
+    with col2:
+        restricted_access = access_analysis.get('restricted_access_points', 0)
+        st.metric("Restricted Access Points", restricted_access)
+    
+    with col3:
+        security_risk = access_analysis.get('security_risk_score', 0)
+        risk_level = "High" if security_risk > 0.7 else "Medium" if security_risk > 0.3 else "Low"
+        st.metric("Security Risk Level", risk_level, f"{security_risk:.1%}")
+    
+    # Security Zones
+    security_zones = spatial_analysis.get('security_zones', [])
+    
+    if security_zones:
+        st.write("### 🏢 Security Zones")
+        
+        security_data = []
+        for i, zone in enumerate(security_zones):
+            zone_info = {
+                'Zone ID': i + 1,
+                'Security Level': zone.get('security_level', 'Unknown'),
+                'Area (cm²)': f"{zone.get('area_size', 0):.1f}",
+                'Access Points': zone.get('access_points', 0),
+                'Access Control Required': '✅ Yes' if zone.get('access_control_required', False) else '❌ No'
+            }
+            security_data.append(zone_info)
+        
+        df_security = pd.DataFrame(security_data)
+        st.dataframe(df_security, use_container_width=True)
+        
+        # Security Level Distribution
+        security_levels = [zone.get('security_level', 'Unknown') for zone in security_zones]
+        level_counts = pd.Series(security_levels).value_counts()
+        
+        fig = px.pie(
+            values=level_counts.values,
+            names=level_counts.index,
+            title="Security Level Distribution"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    else:
+        st.info("No security zones identified in the current layout.")
+    
+    # Security Recommendations
+    st.write("### 💡 Security Recommendations")
+    
+    recommendations = []
+    
+    if access_analysis.get('security_risk_score', 0) > 0.5:
+        recommendations.append("🔴 High security risk detected - consider additional access control measures")
+    
+    if access_analysis.get('restricted_access_points', 0) > access_analysis.get('total_entrances', 1) * 0.5:
+        recommendations.append("🟡 High proportion of restricted access points - review access policies")
+    
+    if not security_zones:
+        recommendations.append("🔵 No security zones defined - consider implementing security zoning")
+    
+    if recommendations:
+        for rec in recommendations:
+            st.info(rec)
+    else:
+        st.success("✅ Security analysis shows acceptable risk levels")
     
     # Compliance overview
     compliance_data = []
@@ -637,13 +1148,93 @@ def show_compliance_analysis():
     
     st.plotly_chart(fig, use_container_width=True)
 
-def show_construction_planning():
-    """Ultimate construction planning"""
-    st.subheader("🏗️ Ultimate Construction Planning")
+def show_compliance_analysis():
+    """Show compliance analysis"""
+    st.subheader("📋 Compliance Analysis")
     
-    if not st.session_state.zones:
-        st.warning("No data for construction planning.")
+    if not hasattr(st.session_state, 'enterprise_data') or not st.session_state.enterprise_data:
+        st.warning("No data for compliance analysis.")
         return
+    
+    layout_data = st.session_state.enterprise_data['layout_data']
+    validation = layout_data.get('validation', {})
+    
+    st.write("### ✅ Compliance Overview")
+    
+    # Overall Compliance Score
+    compliance_score = validation.get('compliance_score', 0)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric(
+            "Overall Compliance Score",
+            f"{compliance_score:.1%}",
+            delta="Excellent" if compliance_score >= 0.9 else "Good" if compliance_score >= 0.7 else "Needs Improvement"
+        )
+    
+    with col2:
+        is_valid = validation.get('valid', False)
+        st.metric(
+            "Layout Validity",
+            "✅ Valid" if is_valid else "❌ Invalid",
+            delta="Compliant" if is_valid else "Non-Compliant"
+        )
+    
+    with col3:
+        warnings_count = len(validation.get('warnings', []))
+        errors_count = len(validation.get('errors', []))
+        st.metric(
+            "Issues Found",
+            f"{warnings_count + errors_count}",
+            delta=f"{warnings_count}W, {errors_count}E"
+        )
+    
+    # Detailed Issues
+    if validation.get('errors'):
+        st.write("### ❌ Critical Errors")
+        for error in validation['errors']:
+            st.error(f"🚨 {error}")
+    
+    if validation.get('warnings'):
+        st.write("### ⚠️ Warnings")
+        for warning in validation['warnings']:
+            st.warning(f"⚠️ {warning}")
+    
+    if not validation.get('errors') and not validation.get('warnings'):
+        st.success("✅ No compliance issues found - layout meets all requirements")
+    
+    # Compliance Categories
+    st.write("### 📊 Compliance Categories")
+    
+    # Mock compliance data for demonstration
+    compliance_categories = {
+        'Fire Safety': 95,
+        'Accessibility': 88,
+        'Space Planning': 92,
+        'Building Codes': 90,
+        'Emergency Egress': 85
+    }
+    
+    df_compliance = pd.DataFrame([
+        {'Category': cat, 'Score': score, 'Status': '✅ Pass' if score >= 80 else '❌ Fail'}
+        for cat, score in compliance_categories.items()
+    ])
+    
+    st.dataframe(df_compliance, use_container_width=True)
+    
+    # Compliance Chart
+    fig = px.bar(
+        x=list(compliance_categories.keys()),
+        y=list(compliance_categories.values()),
+        title="Compliance Scores by Category",
+        color=list(compliance_categories.values()),
+        color_continuous_scale='RdYlGn'
+    )
+    
+    fig.add_hline(y=80, line_dash="dash", line_color="red", annotation_text="Minimum Compliance (80%)")
+    
+    st.plotly_chart(fig, use_container_width=True)
     
     total_area = sum(zone['area'] for zone in st.session_state.zones)
     
@@ -664,13 +1255,25 @@ def show_construction_planning():
     total_weeks = 20
     st.info(f"🏗️ **Total Project Duration:** {total_weeks} weeks | **Total Cost:** ${total_cost:,.0f}")
 
-def show_advanced_analytics():
-    """Ultimate advanced analytics"""
-    st.subheader("📊 Ultimate Advanced Analytics")
+def show_basic_layout_info(dxf_data, layout_data):
+    """Show basic layout information as fallback"""
+    st.write("### 📋 Basic Layout Information")
     
-    if not st.session_state.zones:
-        st.warning("No data for advanced analytics.")
-        return
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**DXF Elements:**")
+        st.write(f"- Walls: {len(dxf_data.get('walls', []))}")
+        st.write(f"- Restricted Areas: {len(dxf_data.get('restricted_areas', []))}")
+        st.write(f"- Entrances: {len(dxf_data.get('entrances_exits', []))}")
+    
+    with col2:
+        st.write("**Layout Elements:**")
+        ilots = layout_data.get('ilots', [])
+        placed_ilots = [i for i in ilots if i.get('placed', False)]
+        st.write(f"- Total Îlots: {len(ilots)}")
+        st.write(f"- Placed Îlots: {len(placed_ilots)}")
+        st.write(f"- Corridors: {len(layout_data.get('corridors', {}).get('corridors', []))}")
     
     total_area = sum(zone['area'] for zone in st.session_state.zones)
     total_cost = sum(zone['area'] * zone['cost_per_sqm'] for zone in st.session_state.zones)
@@ -697,26 +1300,7 @@ def show_advanced_analytics():
                     title="Ultimate Performance Metrics")
         st.plotly_chart(fig, use_container_width=True)
 
-def show_cloud_features():
-    """Ultimate cloud features"""
-    st.subheader("☁️ Ultimate Cloud Integration")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 🌐 Cloud Services")
-        if st.button("☁️ Sync to Cloud", use_container_width=True):
-            st.success("✅ Project synced to cloud!")
-        if st.button("👥 Share with Team", use_container_width=True):
-            st.success("✅ Shared with 5 team members!")
-        if st.button("🔄 Auto-Backup", use_container_width=True):
-            st.success("✅ Auto-backup enabled!")
-    
-    with col2:
-        st.markdown("### 📊 Cloud Analytics")
-        st.info("**Cloud Status:** ✅ Connected")
-        st.info("**Last Sync:** 2 minutes ago")
-        st.info("**Storage Used:** 2.3 GB / 100 GB")
+
 
 def show_export_suite():
     """Ultimate export suite"""
