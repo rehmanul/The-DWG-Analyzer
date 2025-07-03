@@ -332,8 +332,8 @@ def main():
                         
                         # Get room geometry
                         rooms = dxf_data.get('rooms', [])
-                        if rooms:
-                            room_geometry = rooms[0]['geometry']
+                        if rooms and len(rooms) > 0 and isinstance(rooms[0], dict):
+                            room_geometry = rooms[0].get('geometry', rooms[0].get('points', [(0, 0), (2000, 0), (2000, 1500), (0, 1500)]))
                         else:
                             room_geometry = [(0, 0), (2000, 0), (2000, 1500), (0, 1500)]
                         
