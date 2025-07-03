@@ -200,8 +200,8 @@ def main():
                         st.session_state.file_processed = True
                         
                         # Extract metrics for display
-                        dxf_data = result['dxf_data']
-                        layout_data = result['layout_data']
+                        dxf_data = result.get('dxf_data', {})
+                        layout_data = result.get('layout_data', {})
                         
                         walls_count = len(dxf_data.get('walls', []))
                         restricted_count = len(dxf_data.get('restricted_areas', []))
@@ -254,7 +254,7 @@ def main():
                         
                         # Re-run layout engine with new requirements
                         layout_engine = IlotLayoutEngine()
-                        dxf_data = st.session_state.enterprise_data['dxf_data']
+                        dxf_data = st.session_state.enterprise_data.get('dxf_data', {}) if st.session_state.enterprise_data else {}
                         
                         # Get room geometry
                         rooms = dxf_data.get('rooms', [])
@@ -387,8 +387,8 @@ def show_enterprise_metrics():
         return
     
     enterprise_data = st.session_state.enterprise_data
-    dxf_data = enterprise_data['dxf_data']
-    layout_data = enterprise_data['layout_data']
+    dxf_data = enterprise_data.get('dxf_data', {}) if enterprise_data else {}
+    layout_data = enterprise_data.get('layout_data', {}) if enterprise_data else {}
     
     # Calculate metrics
     walls_count = len(dxf_data.get('walls', []))
@@ -1090,8 +1090,14 @@ def show_accessibility_analysis():
     with col1:
         st.metric("Total Consumption", f"{total_consumption:,.0f} kWh/year", delta="-15%")
     with col2:
-        energy_ratings = [zone['energy_rating'] for zone in st.session_state.zones]
-        avg_rating = max(set(energy_ratings), key=energy_ratings.count)
+        if st.session_state.zones:
+            energy_ratings = [zone.get('energy_rating', 'A') for zone in st.session_state.zones]
+            if energy_ratings:
+                avg_rating = max(set(energy_ratings), key=energy_ratings.count)
+            else:
+                avg_rating = 'A'
+        else:
+            avg_rating = 'A'
         st.metric("Energy Rating", avg_rating, delta="Excellent")
     with col3:
         carbon_footprint = total_consumption * 0.0005  # tons CO₂
