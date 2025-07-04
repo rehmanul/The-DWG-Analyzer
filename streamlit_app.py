@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """
-AI Architectural Space Analyzer PRO - Enterprise Streamlit Deployment
+ULTIMATE AI ARCHITECTURAL ANALYZER - Live at https://the-dwg-analyzer.streamlit.app/
 Full CAD processing with real îlot placement algorithms
 """
 
 import streamlit as st
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-import io
 import json
-import os
 import time
-from pathlib import Path
+import io
+import base64
+from datetime import datetime
+import hashlib
 import random
 
 # Optional imports with fallbacks
@@ -77,6 +80,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
+    # Live deployment banner
+    st.markdown("""
+    <div style="background: linear-gradient(90deg, #ff6b6b, #4ecdc4); padding: 1rem; border-radius: 10px; color: white; text-align: center; margin-bottom: 2rem;">
+        <h3>🌐 LIVE: https://the-dwg-analyzer.streamlit.app/</h3>
+        <p>Ultimate AI Architectural Analyzer - Now Live!</p>
+    </div>
+    """, unsafe_allow_html=True)
     # Header
     st.markdown("""
     <div class="main-header">
