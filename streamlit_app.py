@@ -224,7 +224,7 @@ def process_cad_file(file_path, file_type):
                 zones.append({'type': 'restricted', 'polygon': poly, 'color': 'lightblue'})
             for poly in entrances:
                 zones.append({'type': 'entrance', 'polygon': poly, 'color': 'red'})
-            all_bounds = [z['polygon'].bounds for z in zones if hasattr(z['polygon'], 'bounds') and z['polygon'].is_valid]
+            all_bounds = [z['polygon'].bounds for z in zones if isinstance(z, dict) and hasattr(z.get('polygon', None), 'bounds') and z['polygon'].is_valid]
             if all_bounds:
                 min_x = min(b[0] for b in all_bounds)
                 min_y = min(b[1] for b in all_bounds)
@@ -239,11 +239,13 @@ def process_cad_file(file_path, file_type):
                 zones_data = parser.parse_file_from_path(file_path)
                 # Convert to standard format
                 for z in zones_data:
-                    if 'points' in z:
+                    if isinstance(z, dict) and 'points' in z:
                         from shapely.geometry import Polygon
                         poly = Polygon(z['points'])
                         zones.append({'type': z.get('type', 'room'), 'polygon': poly, 'color': z.get('color', 'gray')})
-                all_bounds = [z['polygon'].bounds for z in zones if hasattr(z['polygon'], 'bounds') and z['polygon'].is_valid]
+                    else:
+                        st.warning(f"DWG zone entry is not a dict or missing 'points': {z}")
+                all_bounds = [z['polygon'].bounds for z in zones if isinstance(z, dict) and hasattr(z.get('polygon', None), 'bounds') and z['polygon'].is_valid]
                 if all_bounds:
                     min_x = min(b[0] for b in all_bounds)
                     min_y = min(b[1] for b in all_bounds)
@@ -293,7 +295,7 @@ def process_cad_file(file_path, file_type):
                             pdf_zones.append({'type': 'pdf_line', 'polygon': line_poly, 'color': 'gray'})
                 if pdf_zones:
                     zones.extend(pdf_zones)
-                    all_bounds = [z['polygon'].bounds for z in zones if hasattr(z['polygon'], 'bounds') and z['polygon'].is_valid]
+                    all_bounds = [z['polygon'].bounds for z in zones if isinstance(z, dict) and hasattr(z.get('polygon', None), 'bounds') and z['polygon'].is_valid]
                     if all_bounds:
                         min_x = min(b[0] for b in all_bounds)
                         min_y = min(b[1] for b in all_bounds)
@@ -315,6 +317,7 @@ def process_cad_file(file_path, file_type):
             st.warning(f"Unsupported file type: {ext}")
     except Exception as e:
         st.error(f"File parsing failed: {e}")
+        st.error(f"Debug: zones={zones}")
     return zones, bounds
 
 def process_image_cad(img):
@@ -500,12 +503,16 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
     # --- Main Visualization ---
     fig = go.Figure()
     for zone in zones:
-        if zone['polygon'].is_valid:
-            if hasattr(zone['polygon'], 'exterior'):
-                x, y = zone['polygon'].exterior.xy
+        if not isinstance(zone, dict):
+            st.warning(f"Zone entry is not a dict: {zone}")
+            continue
+        poly = zone.get('polygon', None)
+        if poly is not None and hasattr(poly, 'is_valid') and poly.is_valid:
+            if hasattr(poly, 'exterior'):
+                x, y = poly.exterior.xy
             else:
                 continue
-            if zone['type'] == 'wall':
+            if zone.get('type') == 'wall':
                 fig.add_trace(go.Scatter(
                     x=list(x), y=list(y),
                     mode='lines',
@@ -513,7 +520,7 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
                     name='Walls',
                     showlegend=True
                 ))
-            elif zone['type'] == 'entrance':
+            elif zone.get('type') == 'entrance':
                 fig.add_trace(go.Scatter(
                     x=list(x), y=list(y),
                     fill='toself',
@@ -522,7 +529,7 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
                     name='Entrances',
                     showlegend=True
                 ))
-            elif zone['type'] == 'restricted':
+            elif zone.get('type') == 'restricted':
                 fig.add_trace(go.Scatter(
                     x=list(x), y=list(y),
                     fill='toself',
@@ -531,7 +538,7 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
                     name='Restricted',
                     showlegend=True
                 ))
-            elif zone['type'].startswith('pdf_'):
+            elif str(zone.get('type', '')).startswith('pdf_'):
                 fig.add_trace(go.Scatter(
                     x=list(x), y=list(y),
                     fill='toself',
