@@ -89,19 +89,12 @@ button, .stButton>button {
 """, unsafe_allow_html=True)
 
 def main():
-    # Live deployment banner (top, centered, smaller)
+    # Header (smaller, more compact)
     st.markdown("""
-    <div class="live-banner">
-        <b>🌐 LIVE:</b> <a href="https://the-dwg-analyzer.streamlit.app/" style="color:white;text-decoration:underline;">https://the-dwg-analyzer.streamlit.app/</a>
-        &nbsp;|&nbsp; <span>Ultimate AI Architectural Analyzer - Now Live!</span>
-    </div>
-    """, unsafe_allow_html=True)
-    # Header
-    st.markdown("""
-    <div class="main-header">
-        <h1 style="font-size:2.1rem;margin-bottom:0.2em;">🏗️ AI ARCHITECTURAL ANALYZER PRO</h1>
-        <h2 style="font-size:1.2rem;margin-bottom:0.2em;">Enterprise Edition - Professional CAD Analysis</h2>
-        <p style="font-size:1rem;">Advanced AI • Real-time Processing • Professional Export</p>
+    <div class="main-header" style="padding:0.7rem 0.2rem; font-size:1.05rem;">
+        <h1 style="font-size:1.3rem;margin-bottom:0.15em;">🏗️ AI ARCHITECTURAL ANALYZER PRO</h1>
+        <h2 style="font-size:0.95rem;margin-bottom:0.15em;">Enterprise Edition - Professional CAD Analysis</h2>
+        <p style="font-size:0.85rem;">Advanced AI • Real-time Processing • Professional Export</p>
     </div>
     """, unsafe_allow_html=True)
     
