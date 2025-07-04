@@ -7,13 +7,19 @@ from shapely.ops import unary_union
 
 logger = logging.getLogger(__name__)
 
-def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, population_size=30, corridor_width=1.2):
+import time
+
+def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, population_size=30, corridor_width=1.2, max_seconds=60):
     """
     Genetic algorithm for îlot placement with constraint compliance and corridor support.
     Returns: dict with 'ilots' and 'corridors'.
+    Adds timing, debug logs, and a timeout safeguard.
     """
+    start_time = time.time()
+    logger.info("[IlotOptimizer] Starting îlot generation...")
     min_x, min_y, max_x, max_y = bounds
     total_area = (max_x - min_x) * (max_y - min_y)
+    logger.info(f"[IlotOptimizer] Bounds: {bounds}, Total area: {total_area:.2f}")
     categories = [
         ('0-1m²', (0.5, 1.0), config['size_0_1']),
         ('1-3m²', (1.0, 3.0), config['size_1_3']),
@@ -34,6 +40,7 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, p
                 'height': height,
                 'category': category
             })
+    logger.info(f"[IlotOptimizer] Ilot specs generated: {len(ilot_specs)}")
 
     def random_chromosome():
         # Each gene is (x, y, rotation)
@@ -114,11 +121,15 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, p
                 new_genes[i] = (x, y, rot)
         return new_genes
 
-    # Genetic algorithm main loop
+    # Genetic algorithm main loop with timeout and progress logs
     population = [random_chromosome() for _ in range(population_size)]
     best_fitness = 0
     best_ilots = []
+    last_log_time = time.time()
     for gen in range(max_generations):
+        if time.time() - start_time > max_seconds:
+            logger.warning(f"[IlotOptimizer] Timeout: Exceeded {max_seconds} seconds at generation {gen}.")
+            break
         scored = []
         for chrom in population:
             try:
@@ -140,12 +151,15 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, p
             child = mutate(child)
             next_gen.append(child)
         population = next_gen
-        if gen % 10 == 0:
-            logger.info(f"Generation {gen}: best fitness {best_fitness:.2f}, ilots {len(best_ilots)}")
+        # More granular progress logs
+        if gen % 5 == 0 or (time.time() - last_log_time) > 5:
+            logger.info(f"[IlotOptimizer] Generation {gen}: best fitness {best_fitness:.2f}, ilots {len(best_ilots)}, elapsed {time.time()-start_time:.1f}s")
+            last_log_time = time.time()
 
     # Corridor placement (simple version: between rows)
     corridors = []
     try:
+        logger.info(f"[IlotOptimizer] Starting corridor placement for {len(best_ilots)} ilots...")
         # Group ilots by y (rows)
         if best_ilots:
             sorted_ilots = sorted(best_ilots, key=lambda i: i['position'][1])
@@ -181,7 +195,10 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, p
                         break
                 if not overlap:
                     corridors.append({'polygon': corridor_poly, 'row_pair': (i, i+1)})
+        logger.info(f"[IlotOptimizer] Corridor placement complete. Corridors: {len(corridors)}")
     except Exception as e:
         logger.error(f"Corridor placement error: {e}")
 
+    elapsed = time.time() - start_time
+    logger.info(f"[IlotOptimizer] Finished îlot generation in {elapsed:.2f} seconds. Best fitness: {best_fitness:.2f}, ilots: {len(best_ilots)}, corridors: {len(corridors)}")
     return {'ilots': best_ilots, 'corridors': corridors}
