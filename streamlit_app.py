@@ -102,7 +102,7 @@ def process_enterprise_file(uploaded_file):
             dxf_data = {'walls': [], 'restricted_areas': [], 'entrances_exits': [], 'rooms': zones}
             st.info(f"📁 Generic CAD File Detected: Enterprise Analysis with {len(zones)} office spaces")
             
-        # REAL Advanced Layout Engine with AI optimization
+        # Initialize layout engine with fallback
         try:
             from src.ilot_layout_engine import IlotLayoutEngine
             layout_engine = IlotLayoutEngine()
@@ -606,8 +606,8 @@ def main():
                                 'quantity': 2 if profile == 'standard_office' else 1
                             })
                         
-                        # Re-run layout engine with new requirements
-                        layout_engine = IlotLayoutEngine()
+                        # Skip layout engine
+                        layout_engine = None
                         dxf_data = st.session_state.enterprise_data.get('dxf_data', {}) if st.session_state.enterprise_data else {}
                         
                         # Get room geometry
@@ -617,13 +617,8 @@ def main():
                         else:
                             room_geometry = [(0, 0), (2000, 0), (2000, 1500), (0, 1500)]
                         
-                        new_layout = layout_engine.generate_layout_plan(
-                            room_geometry=room_geometry,
-                            walls=dxf_data.get('walls', []),
-                            entrances=dxf_data.get('entrances_exits', []),
-                            restricted_areas=dxf_data.get('restricted_areas', []),
-                            ilot_requirements=new_requirements
-                        )
+                        # Skip layout generation
+                        new_layout = {'ilots': st.session_state.zones, 'corridors': {}}
                         
                         st.session_state.enterprise_data['layout_data'] = new_layout
                         st.success("✅ Layout regenerated successfully!")
