@@ -556,16 +556,24 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
         '5-10m²': '#f9ca24'
     }
     for ilot in ilots:
-        if ilot['polygon'].is_valid:
-            x, y = ilot['polygon'].exterior.xy
-            color = colors.get(ilot['category'], '#gray')
+        # Robust: skip if not dict or missing keys
+        if not isinstance(ilot, dict):
+            st.warning(f"Îlot entry is not a dict: {ilot}")
+            continue
+        poly = ilot.get('polygon', None)
+        if poly is not None and hasattr(poly, 'is_valid') and poly.is_valid:
+            if hasattr(poly, 'exterior'):
+                x, y = poly.exterior.xy
+            else:
+                continue
+            color = colors.get(ilot.get('category'), '#gray')
             fig.add_trace(go.Scatter(
                 x=list(x), y=list(y),
                 fill='toself',
                 fillcolor=color,
                 line=dict(color='black', width=1),
-                name=ilot['category'],
-                text=f"{ilot['area']:.1f}m²",
+                name=ilot.get('category', 'Îlot'),
+                text=f"{ilot.get('area', 0):.1f}m²",
                 textposition='middle center',
                 showlegend=True
             ))
