@@ -35,42 +35,73 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS
+# CSS (smaller, more compact, modern look)
 st.markdown("""
 <style>
 .main-header {
     background: linear-gradient(90deg, #2c3e50, #3498db);
-    padding: 2rem;
-    border-radius: 10px;
+    padding: 1.2rem 0.5rem;
+    border-radius: 8px;
     color: white;
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1.2rem;
+    font-size: 1.2rem;
 }
 .feature-card {
     background: white;
-    padding: 1.5rem;
+    padding: 1rem;
+    border-radius: 6px;
+    box-shadow: 0 1.5px 3px rgba(0,0,0,0.08);
+    border-left: 3px solid #3498db;
+    margin: 0.7rem 0;
+    font-size: 0.95rem;
+}
+body, .stApp {
+    font-size: 0.85rem !important;
+    font-family: 'Segoe UI', 'Arial', sans-serif;
+}
+button, .stButton>button {
+    font-size: 0.95rem !important;
+    padding: 0.3rem 0.8rem !important;
+}
+.sidebar .sidebar-content {
+    padding: 0.7rem 0.5rem !important;
+}
+.stDownloadButton>button {
+    font-size: 0.95rem !important;
+    padding: 0.3rem 0.8rem !important;
+}
+.live-banner {
+    background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
+    padding: 0.5rem 0.2rem;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    border-left: 4px solid #3498db;
-    margin: 1rem 0;
+    color: white;
+    text-align: center;
+    margin-bottom: 0.7rem;
+    margin-top: 0.2rem;
+    font-size: 1.05rem;
+    width: 100%;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
 }
 </style>
 """, unsafe_allow_html=True)
 
 def main():
-    # Live deployment banner
+    # Live deployment banner (top, centered, smaller)
     st.markdown("""
-    <div style="background: linear-gradient(90deg, #ff6b6b, #4ecdc4); padding: 1rem; border-radius: 10px; color: white; text-align: center; margin-bottom: 2rem;">
-        <h3>🌐 LIVE: https://the-dwg-analyzer.streamlit.app/</h3>
-        <p>Ultimate AI Architectural Analyzer - Now Live!</p>
+    <div class="live-banner">
+        <b>🌐 LIVE:</b> <a href="https://the-dwg-analyzer.streamlit.app/" style="color:white;text-decoration:underline;">https://the-dwg-analyzer.streamlit.app/</a>
+        &nbsp;|&nbsp; <span>Ultimate AI Architectural Analyzer - Now Live!</span>
     </div>
     """, unsafe_allow_html=True)
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1>🏗️ AI ARCHITECTURAL ANALYZER PRO</h1>
-        <h2>Enterprise Edition - Professional CAD Analysis</h2>
-        <p>Advanced AI • Real-time Processing • Professional Export</p>
+        <h1 style="font-size:2.1rem;margin-bottom:0.2em;">🏗️ AI ARCHITECTURAL ANALYZER PRO</h1>
+        <h2 style="font-size:1.2rem;margin-bottom:0.2em;">Enterprise Edition - Professional CAD Analysis</h2>
+        <p style="font-size:1rem;">Advanced AI • Real-time Processing • Professional Export</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -191,8 +222,8 @@ def process_file(uploaded_file, config):
             os.remove(file_path)
             
     except Exception as e:
-        st.error(f"❌ Processing failed: {str(e)}")
-        st.info("💡 Try a different file format")
+        st.error("Sorry, something went wrong while processing your file. Please check your input and try again.")
+        st.info("💡 If the problem persists, try a different file format or contact support.")
 
 def process_cad_file(file_path, file_type):
     """Process CAD file and extract zones"""
@@ -524,9 +555,18 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
                     'polygon': list(ilot['polygon'].exterior.coords)
                 } for ilot in ilots
             ],
-            'corridors': [
-                (list(c['polygon'].exterior.coords) if hasattr(c, 'polygon') else list(c.exterior.coords)) for c in corridors
-            ]
+            'corridors': []
+        }
+        # Robust corridor export: handle dict, shapely, or other
+        for c in corridors:
+            if isinstance(c, dict) and 'polygon' in c and hasattr(c['polygon'], 'exterior'):
+                export_data['corridors'].append(list(c['polygon'].exterior.coords))
+            elif hasattr(c, 'polygon') and hasattr(c.polygon, 'exterior'):
+                export_data['corridors'].append(list(c.polygon.exterior.coords))
+            elif hasattr(c, 'exterior'):
+                export_data['corridors'].append(list(c.exterior.coords))
+            else:
+                export_data['corridors'].append(str(c))  # fallback: string representation
         }
         st.download_button(
             "⬇️ Download Data",
