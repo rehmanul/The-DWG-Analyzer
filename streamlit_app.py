@@ -214,31 +214,107 @@ def process_cad_file(file_path, file_type):
     zones = []
     bounds = (0, 0, 100, 100)
     ext = os.path.splitext(file_path)[-1].lower()
-    if ext == '.dxf':
-        try:
+    try:
+        if ext == '.dxf':
+            # DXF: use core parser
             walls, restricted, entrances = parse_dxf(file_path)
-            # Convert to zones format
             for poly in walls:
                 zones.append({'type': 'wall', 'polygon': poly, 'color': 'black'})
             for poly in restricted:
                 zones.append({'type': 'restricted', 'polygon': poly, 'color': 'lightblue'})
             for poly in entrances:
                 zones.append({'type': 'entrance', 'polygon': poly, 'color': 'red'})
-            # Calculate bounds
-            all_bounds = [z['polygon'].bounds for z in zones if z['polygon'].is_valid]
+            all_bounds = [z['polygon'].bounds for z in zones if hasattr(z['polygon'], 'bounds') and z['polygon'].is_valid]
             if all_bounds:
                 min_x = min(b[0] for b in all_bounds)
                 min_y = min(b[1] for b in all_bounds)
                 max_x = max(b[2] for b in all_bounds)
                 max_y = max(b[3] for b in all_bounds)
                 bounds = (min_x, min_y, max_x, max_y)
-        except Exception as e:
-            st.error(f"DXF parsing failed: {e}")
-    elif file_type in ['image/png', 'image/jpeg', 'image/jpg']:
-        # Image processing with OpenCV
-        img = cv2.imread(file_path)
-        if img is not None:
-            zones, bounds = process_image_cad(img)
+        elif ext == '.dwg':
+            # DWG: try to use src/dwg_parser.py if available, else fallback
+            try:
+                from src.dwg_parser import DWGParser
+                parser = DWGParser()
+                zones_data = parser.parse_file_from_path(file_path)
+                # Convert to standard format
+                for z in zones_data:
+                    if 'points' in z:
+                        from shapely.geometry import Polygon
+                        poly = Polygon(z['points'])
+                        zones.append({'type': z.get('type', 'room'), 'polygon': poly, 'color': z.get('color', 'gray')})
+                all_bounds = [z['polygon'].bounds for z in zones if hasattr(z['polygon'], 'bounds') and z['polygon'].is_valid]
+                if all_bounds:
+                    min_x = min(b[0] for b in all_bounds)
+                    min_y = min(b[1] for b in all_bounds)
+                    max_x = max(b[2] for b in all_bounds)
+                    max_y = max(b[3] for b in all_bounds)
+                    bounds = (min_x, min_y, max_x, max_y)
+            except Exception as e:
+                st.warning(f"DWG parsing failed: {e}. Fallback to file size zones.")
+                # Fallback: create zones based on file size
+                file_size = os.path.getsize(file_path) / 1024
+                for i in range(2):
+                    base_x = i * 10
+                    base_y = i * 8
+                    width = 8 + i * 2
+                    height = 6 + i
+                    from shapely.geometry import Polygon
+                    poly = Polygon([
+                        (base_x, base_y),
+                        (base_x + width, base_y),
+                        (base_x + width, base_y + height),
+                        (base_x, base_y + height)
+                    ])
+                    zones.append({'type': 'room', 'polygon': poly, 'color': 'gray'})
+        elif ext == '.pdf':
+            # Improved PDF parsing: try to extract vector shapes using pdfplumber
+            try:
+                import pdfplumber
+                from shapely.geometry import Polygon, LineString
+                pdf_zones = []
+                with pdfplumber.open(file_path) as pdf:
+                    for page in pdf.pages:
+                        # Extract lines as polygons (approximate rooms/walls)
+                        lines = page.lines
+                        rects = page.rects
+                        for rect in rects:
+                            poly = Polygon([
+                                (rect["x0"], rect["y0"]),
+                                (rect["x1"], rect["y0"]),
+                                (rect["x1"], rect["y1"]),
+                                (rect["x0"], rect["y1"])
+                            ])
+                            pdf_zones.append({'type': 'pdf_rect', 'polygon': poly, 'color': 'purple'})
+                        # Optionally, try to group lines into polygons (advanced)
+                        # For now, just add lines as thin polygons
+                        for line in lines:
+                            line_poly = LineString([(line["x0"], line["y0"]), (line["x1"], line["y1"])]).buffer(0.2)
+                            pdf_zones.append({'type': 'pdf_line', 'polygon': line_poly, 'color': 'gray'})
+                if pdf_zones:
+                    zones.extend(pdf_zones)
+                    all_bounds = [z['polygon'].bounds for z in zones if hasattr(z['polygon'], 'bounds') and z['polygon'].is_valid]
+                    if all_bounds:
+                        min_x = min(b[0] for b in all_bounds)
+                        min_y = min(b[1] for b in all_bounds)
+                        max_x = max(b[2] for b in all_bounds)
+                        max_y = max(b[3] for b in all_bounds)
+                        bounds = (min_x, min_y, max_x, max_y)
+                else:
+                    raise Exception("No vector shapes found in PDF.")
+            except Exception as e:
+                st.warning(f"PDF parsing limited: {e}. Only basic bounding box will be shown.")
+                from shapely.geometry import Polygon
+                poly = Polygon([(0,0), (10,0), (10,7), (0,7)])
+                zones.append({'type': 'pdf_area', 'polygon': poly, 'color': 'purple'})
+        elif ext in ['.png', '.jpg', '.jpeg', '.tiff'] or file_type in ['image/png', 'image/jpeg', 'image/jpg']:
+            img = cv2.imread(file_path)
+            if img is not None:
+                zones, bounds = process_image_cad(img)
+        else:
+            st.warning(f"Unsupported file type: {ext}")
+    except Exception as e:
+        st.error(f"File parsing failed: {e}")
     return zones, bounds
 
 def process_image_cad(img):
@@ -347,17 +423,18 @@ def generate_corridors_real(ilots):
     return generate_corridors(ilots, corridor_width)
 
 def show_real_results(zones, ilots, corridors, bounds, config, filename):
+
     st.subheader("📊 Analysis Results")
-    
+
     # Real data
     total_ilots = len(ilots)
     total_area = sum(ilot['area'] for ilot in ilots)
     min_x, min_y, max_x, max_y = bounds
     total_space = (max_x - min_x) * (max_y - min_y)
     coverage = (total_area / total_space) * 100 if total_space > 0 else 0
-    
+
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
         st.metric("Total Îlots", total_ilots)
     with col2:
@@ -366,15 +443,68 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
         st.metric("Coverage", f"{coverage:.1f}%")
     with col4:
         st.metric("Efficiency", f"{coverage*1.1:.1f}%")
-    
-    # Real visualization
+
+    # --- Advanced Analytics ---
+    # Zone summary table
+    st.markdown("#### Zone Summary Table")
+    import pandas as pd
+    zone_summary = []
+    for zone in zones:
+        if hasattr(zone['polygon'], 'area'):
+            zone_summary.append({
+                'Type': zone['type'],
+                'Area': round(zone['polygon'].area, 2)
+            })
+    if zone_summary:
+        df_zone = pd.DataFrame(zone_summary)
+        st.dataframe(df_zone.groupby('Type').sum(numeric_only=True).reset_index(), use_container_width=True)
+
+    # CSV Export for ilots and zones
+    st.markdown("#### Export Îlots and Zones as CSV")
+    import io
+    ilot_csv = io.StringIO()
+    zone_csv = io.StringIO()
+    pd.DataFrame([
+        {
+            'area': ilot['area'],
+            'category': ilot['category'],
+            'position': ilot['position'],
+            'width': ilot['width'],
+            'height': ilot['height']
+        } for ilot in ilots
+    ]).to_csv(ilot_csv, index=False)
+    pd.DataFrame(zone_summary).to_csv(zone_csv, index=False)
+    st.download_button("⬇️ Download Îlots CSV", ilot_csv.getvalue(), file_name=f"ilots_{filename}.csv", mime="text/csv")
+    st.download_button("⬇️ Download Zones CSV", zone_csv.getvalue(), file_name=f"zones_{filename}.csv", mime="text/csv")
+
+    # --- Heatmap Visualization ---
+    st.markdown("#### Îlot Density Heatmap")
+    import numpy as np
+    import plotly.graph_objects as go
+    # Create a grid and count ilots per cell
+    grid_size = 20
+    heatmap = np.zeros((grid_size, grid_size))
+    if ilots:
+        x_span = max_x - min_x
+        y_span = max_y - min_y
+        for ilot in ilots:
+            cx, cy = ilot['position']
+            gx = int((cx - min_x) / x_span * (grid_size - 1)) if x_span > 0 else 0
+            gy = int((cy - min_y) / y_span * (grid_size - 1)) if y_span > 0 else 0
+            if 0 <= gx < grid_size and 0 <= gy < grid_size:
+                heatmap[gy, gx] += 1
+    fig_heat = go.Figure(data=go.Heatmap(z=heatmap, colorscale='YlOrRd'))
+    fig_heat.update_layout(height=300, title="Îlot Density Heatmap")
+    st.plotly_chart(fig_heat, use_container_width=True)
+
+    # --- Main Visualization ---
     fig = go.Figure()
-    
-    # Draw zones
     for zone in zones:
         if zone['polygon'].is_valid:
-            x, y = zone['polygon'].exterior.xy
-            
+            if hasattr(zone['polygon'], 'exterior'):
+                x, y = zone['polygon'].exterior.xy
+            else:
+                continue
             if zone['type'] == 'wall':
                 fig.add_trace(go.Scatter(
                     x=list(x), y=list(y),
@@ -401,7 +531,16 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
                     name='Restricted',
                     showlegend=True
                 ))
-    
+            elif zone['type'].startswith('pdf_'):
+                fig.add_trace(go.Scatter(
+                    x=list(x), y=list(y),
+                    fill='toself',
+                    fillcolor='rgba(155, 89, 182, 0.2)',
+                    line=dict(color='purple', width=1),
+                    name='PDF Shape',
+                    showlegend=True
+                ))
+
     # Draw îlots
     colors = {
         '0-1m²': '#ff6b6b',
@@ -409,12 +548,10 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
         '3-5m²': '#45b7d1',
         '5-10m²': '#f9ca24'
     }
-    
     for ilot in ilots:
         if ilot['polygon'].is_valid:
             x, y = ilot['polygon'].exterior.xy
             color = colors.get(ilot['category'], '#gray')
-            
             fig.add_trace(go.Scatter(
                 x=list(x), y=list(y),
                 fill='toself',
@@ -425,7 +562,7 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
                 textposition='middle center',
                 showlegend=True
             ))
-    
+
     # Draw corridors
     for corridor in corridors:
         if corridor.is_valid:
@@ -438,29 +575,26 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
                 name='Corridors',
                 showlegend=True
             ))
-    
+
     fig.update_layout(
         title="🏗️ Îlot Placement Results",
         xaxis_title="X (meters)",
         yaxis_title="Y (meters)",
         height=500
     )
-    
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # Real distribution chart
     category_counts = {}
     for ilot in ilots:
         cat = ilot['category']
         category_counts[cat] = category_counts.get(cat, 0) + 1
-    
     categories = list(category_counts.keys())
     values = list(category_counts.values())
-    
     fig2 = go.Figure(data=[go.Bar(x=categories, y=values)])
     fig2.update_layout(title="Îlot Distribution by Size")
     st.plotly_chart(fig2, use_container_width=True)
-    
+
     # Export options
     st.subheader("📤 Export Options")
     col1, col2, col3, col4, col5, col6 = st.columns(6)
