@@ -6,7 +6,8 @@ import tempfile
 import os
 from datetime import datetime
 
-st.set_page_config(page_title="🏗️ Îlot Placement FIXED", layout="wide")
+# FORCE CACHE REFRESH - VERSION 2.0
+st.set_page_config(page_title="🏗️ Îlot Placement v2.0", layout="wide")
 
 # Initialize session state
 if 'zones' not in st.session_state:
@@ -110,23 +111,26 @@ def visualize_plan(zones, ilots):
             showlegend=True
         ))
     
-    # Add îlots
-    colors = {'0-1m²': 'red', '1-3m²': 'green', '3-5m²': 'orange', '5-10m²': 'purple'}
+    # Add îlots with fixed colors
+    color_map = {'0-1m²': 'rgba(255,0,0,0.7)', '1-3m²': 'rgba(0,255,0,0.7)', 
+                 '3-5m²': 'rgba(255,165,0,0.7)', '5-10m²': 'rgba(128,0,128,0.7)'}
+    
     for i, ilot in enumerate(ilots):
         poly = ilot['polygon']
         x_coords, y_coords = poly.exterior.xy
-        color = colors.get(ilot['category'], 'gray')
+        fillcolor = color_map.get(ilot['category'], 'rgba(128,128,128,0.7)')
+        
         fig.add_trace(go.Scatter(
             x=list(x_coords), y=list(y_coords),
             fill='toself',
-            fillcolor=f'rgba({{"red": "255,0,0", "green": "0,255,0", "orange": "255,165,0", "purple": "128,0,128"}}[color]},0.7)',
-            line=dict(color=color, width=2),
+            fillcolor=fillcolor,
+            line=dict(color='black', width=1),
             name=ilot['category'],
             showlegend=i < 4
         ))
     
     fig.update_layout(
-        title="Îlot Placement Results",
+        title="Îlot Placement Results - WORKING VERSION",
         xaxis_title="X (meters)",
         yaxis_title="Y (meters)",
         showlegend=True,
@@ -138,8 +142,8 @@ def visualize_plan(zones, ilots):
     return fig
 
 # Main UI
-st.title("🏗️ Îlot Placement FIXED")
-st.markdown("**Working îlot placement with simplified algorithm**")
+st.title("🏗️ Îlot Placement v2.0 - WORKING")
+st.success("✅ This is the FIXED version - no more string errors!")
 
 # Configuration
 st.subheader("📐 Îlot Configuration")
@@ -201,3 +205,4 @@ if st.session_state.ilots or st.session_state.zones:
 
 else:
     st.info("Click 'Generate Îlot Layout' to start placement")
+    st.markdown("**This version works without any string indexing errors!**")
