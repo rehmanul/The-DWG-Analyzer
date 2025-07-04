@@ -525,7 +525,7 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
                 } for ilot in ilots
             ],
             'corridors': [
-                list(c['polygon'].exterior.coords) for c in corridors if hasattr(c, 'polygon') else []
+                (list(c['polygon'].exterior.coords) if hasattr(c, 'polygon') else list(c.exterior.coords)) for c in corridors
             ]
         }
         st.download_button(
