@@ -222,7 +222,7 @@ def process_file(uploaded_file, config):
             os.remove(file_path)
             
     except Exception as e:
-        st.error("Sorry, something went wrong while processing your file. Please check your input and try again.")
+        st.error(f"Processing failed: {str(e)}")
         st.info("💡 If the problem persists, try a different file format or contact support.")
 
 def process_cad_file(file_path, file_type):
