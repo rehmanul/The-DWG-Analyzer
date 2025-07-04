@@ -16,6 +16,7 @@ pyproj>=3.4.0
 rtree>=1.0.0
 descartes>=1.1.0
 plotly>=5.10.0
+streamlit>=1.28.0
 dash>=2.6.0
 flask>=2.2.0
 sqlalchemy>=1.4.0

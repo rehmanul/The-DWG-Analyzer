@@ -12,14 +12,28 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 import logging
 
+# Fix OpenGL issues first
+try:
+    from fix_opengl import fix_opengl_issues
+    fix_opengl_issues()
+except:
+    # Set fallback environment
+    os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+    os.environ['MPLBACKEND'] = 'Agg'
+
 # Add current directory to path
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
 
-# Enterprise imports
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+# Enterprise imports with fallback
+try:
+    from PyQt5.QtWidgets import *
+    from PyQt5.QtCore import *
+    from PyQt5.QtGui import *
+    GUI_AVAILABLE = True
+except ImportError:
+    print("⚠️ GUI libraries not available - running in headless mode")
+    GUI_AVAILABLE = False
 
 # Import enterprise modules
 from main import (
@@ -682,6 +696,11 @@ class EnterpriseMainApplication(QMainWindow):
 
 def main():
     """Main enterprise application entry point"""
+    
+    if not GUI_AVAILABLE:
+        print("❌ GUI not available - use web interface instead:")
+        print("   python run_web.py")
+        return 1
     
     # Create QApplication
     app = QApplication(sys.argv)
