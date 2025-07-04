@@ -567,11 +567,10 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
                 export_data['corridors'].append(list(c.exterior.coords))
             else:
                 export_data['corridors'].append(str(c))  # fallback: string representation
-        }
         st.download_button(
             "⬇️ Download Data",
             json.dumps(export_data, indent=2),
-            f"analysis_{filename}.json"
+            file_name=f"analysis_{filename}.json"
         )
 
     # DXF Export (îlots and corridors with custom layers, advanced metadata, and user annotation prompt)
