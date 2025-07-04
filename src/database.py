@@ -7,10 +7,19 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 import json
-import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Robust logging setup
+import logging
+import os
+import uuid
+
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
 
 # Database configuration
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://de_de:PUPB8V0s2b3bvNZUblolz7d6UM9bcBzb@dpg-d1h53rffte5s739b1i40-a.oregon-postgres.render.com/dwg_analyzer_pro')

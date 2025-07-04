@@ -4,51 +4,29 @@ ULTIMATE AI ARCHITECTURAL ANALYZER - Live at https://the-dwg-analyzer.streamlit.
 Full CAD processing with real îlot placement algorithms
 """
 
+
 import streamlit as st
 import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
 import json
 import time
-import io
-import base64
+import random
 from datetime import datetime
 import hashlib
-import random
-
-# Optional imports with fallbacks
+import os
 try:
     import cv2
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
-
-try:
-    from shapely.geometry import Polygon, Point
-    SHAPELY_AVAILABLE = True
-except ImportError:
-    SHAPELY_AVAILABLE = False
-    # Simple polygon fallback
-    class Polygon:
-        def __init__(self, coords):
-            self.coords = coords
-        def is_valid(self):
-            return True
-        def bounds(self):
-            xs = [p[0] for p in self.coords]
-            ys = [p[1] for p in self.coords]
-            return (min(xs), min(ys), max(xs), max(ys))
-        def exterior(self):
-            class Exterior:
-                def xy(self):
-                    return zip(*self.coords)
-            return Exterior()
-        def intersects(self, other):
-            return False
-        def distance(self, other):
-            return 1.0
+import os
+# Core modules
+from core.cad_parser import parse_dxf
+from core.ilot_optimizer import generate_ilots
+from core.corridor_generator import generate_corridors
+from shapely.geometry import Polygon
+from shapely.ops import unary_union
 
 # Page config
 st.set_page_config(
@@ -221,13 +199,32 @@ def process_cad_file(file_path, file_type):
     
     zones = []
     bounds = (0, 0, 100, 100)
-    
-    if file_type in ['image/png', 'image/jpeg', 'image/jpg']:
+    ext = os.path.splitext(file_path)[-1].lower()
+    if ext == '.dxf':
+        try:
+            walls, restricted, entrances = parse_dxf(file_path)
+            # Convert to zones format
+            for poly in walls:
+                zones.append({'type': 'wall', 'polygon': poly, 'color': 'black'})
+            for poly in restricted:
+                zones.append({'type': 'restricted', 'polygon': poly, 'color': 'lightblue'})
+            for poly in entrances:
+                zones.append({'type': 'entrance', 'polygon': poly, 'color': 'red'})
+            # Calculate bounds
+            all_bounds = [z['polygon'].bounds for z in zones if z['polygon'].is_valid]
+            if all_bounds:
+                min_x = min(b[0] for b in all_bounds)
+                min_y = min(b[1] for b in all_bounds)
+                max_x = max(b[2] for b in all_bounds)
+                max_y = max(b[3] for b in all_bounds)
+                bounds = (min_x, min_y, max_x, max_y)
+        except Exception as e:
+            st.error(f"DXF parsing failed: {e}")
+    elif file_type in ['image/png', 'image/jpeg', 'image/jpg']:
         # Image processing with OpenCV
         img = cv2.imread(file_path)
         if img is not None:
             zones, bounds = process_image_cad(img)
-    
     return zones, bounds
 
 def process_image_cad(img):
@@ -309,128 +306,31 @@ def generate_ilots_real(zones, bounds, config):
     """Real îlot generation with AI algorithms"""
     
     min_x, min_y, max_x, max_y = bounds
-    total_area = (max_x - min_x) * (max_y - min_y)
-    
-    # Calculate forbidden areas
+    # Calculate forbidden areas and entrance buffers
     forbidden_areas = []
+    entrance_buffers = []
     for zone in zones:
-        if zone['type'] in ['restricted', 'entrance']:
+        if zone['type'] == 'restricted':
             forbidden_areas.append(zone['polygon'])
-    
-    # Generate îlot specifications
-    ilot_specs = []
-    categories = [
-        ('0-1m²', (0.5, 1.0), config['size_0_1']),
-        ('1-3m²', (1.0, 3.0), config['size_1_3']),
-        ('3-5m²', (3.0, 5.0), config['size_3_5']),
-        ('5-10m²', (5.0, 10.0), config['size_5_10'])
-    ]
-    
-    estimated_total = max(10, int(total_area * 0.2 / 3.0))
-    
-    for category, (min_size, max_size), percentage in categories:
-        count = int(estimated_total * percentage)
-        for _ in range(count):
-            area = np.random.uniform(min_size, max_size)
-            width = np.sqrt(area / 1.4)
-            height = area / width
-            ilot_specs.append({
-                'area': area,
-                'width': width,
-                'height': height,
-                'category': category
-            })
-    
-    # Place îlots using genetic algorithm approach
-    placed_ilots = []
-    grid_size = 0.5
-    
-    for spec in sorted(ilot_specs, key=lambda x: x['area'], reverse=True):
-        placed = False
-        attempts = 0
-        max_attempts = 100
-        
-        while not placed and attempts < max_attempts:
-            x = random.uniform(min_x, max_x - spec['width'])
-            y = random.uniform(min_y, max_y - spec['height'])
-            
-            candidate = Polygon([
-                (x, y), (x + spec['width'], y),
-                (x + spec['width'], y + spec['height']), (x, y + spec['height'])
-            ])
-            
-            # Check constraints
-            valid = True
-            
-            # Check forbidden areas
-            for forbidden in forbidden_areas:
-                if candidate.intersects(forbidden):
-                    valid = False
-                    break
-            
-            # Check existing îlots
-            if valid:
-                for existing in placed_ilots:
-                    if candidate.distance(existing['polygon']) < 0.5:
-                        valid = False
-                        break
-            
-            if valid:
-                placed_ilots.append({
-                    'polygon': candidate,
-                    'area': spec['area'],
-                    'category': spec['category'],
-                    'position': (x + spec['width']/2, y + spec['height']/2)
-                })
-                placed = True
-            
-            attempts += 1
-    
-    return placed_ilots
+        elif zone['type'] == 'entrance':
+            forbidden_areas.append(zone['polygon'])
+            entrance_buffers.append(zone['polygon'].buffer(1.5))
+    all_forbidden = forbidden_areas + entrance_buffers
+    forbidden_union = unary_union(all_forbidden) if all_forbidden else None
+    # Use core.ilot_optimizer
+    return generate_ilots(zones, bounds, config, forbidden_union)
 
 def generate_corridors_real(ilots):
     """Generate real corridors between îlot rows"""
     
-    if len(ilots) < 4:
-        return []
-    
-    corridors = []
-    
-    # Group îlots by Y position (rows)
-    y_positions = [ilot['position'][1] for ilot in ilots]
-    
-    # Simple corridor generation between rows
-    unique_y = sorted(set(y_positions))
-    
-    for i in range(len(unique_y) - 1):
-        y1 = unique_y[i]
-        y2 = unique_y[i + 1]
-        
-        if abs(y2 - y1) < 15:  # If rows are close enough
-            # Find îlots in these rows
-            row1_ilots = [ilot for ilot in ilots if abs(ilot['position'][1] - y1) < 2]
-            row2_ilots = [ilot for ilot in ilots if abs(ilot['position'][1] - y2) < 2]
-            
-            if len(row1_ilots) >= 2 and len(row2_ilots) >= 2:
-                # Create corridor between rows
-                x_min = min(min(ilot['polygon'].bounds[0] for ilot in row1_ilots),
-                           min(ilot['polygon'].bounds[0] for ilot in row2_ilots))
-                x_max = max(max(ilot['polygon'].bounds[2] for ilot in row1_ilots),
-                           max(ilot['polygon'].bounds[2] for ilot in row2_ilots))
-                
-                y_center = (y1 + y2) / 2
-                corridor_width = 1.5
-                
-                corridor = Polygon([
-                    (x_min, y_center - corridor_width/2),
-                    (x_max, y_center - corridor_width/2),
-                    (x_max, y_center + corridor_width/2),
-                    (x_min, y_center + corridor_width/2)
-                ])
-                
-                corridors.append(corridor)
-    
-    return corridors
+    # Default corridor width
+    corridor_width = 1.5
+    # Try to get from config if available
+    import inspect
+    frame = inspect.currentframe().f_back
+    if frame and 'config' in frame.f_locals:
+        corridor_width = frame.f_locals['config'].get('corridor_width', 1.5)
+    return generate_corridors(ilots, corridor_width)
 
 def show_real_results(zones, ilots, corridors, bounds, config, filename):
     st.subheader("📊 Analysis Results")
@@ -549,31 +449,157 @@ def show_real_results(zones, ilots, corridors, bounds, config, filename):
     
     # Export options
     st.subheader("📤 Export Options")
-    col1, col2, col3 = st.columns(3)
-    
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+
+    # PDF Export with chart and image
     with col1:
         if st.button("📄 PDF Report"):
-            st.success("PDF report generated!")
-    
+            from fpdf import FPDF
+            import tempfile
+            import base64
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=14)
+            pdf.cell(200, 10, txt="AI Architectural Analyzer Report", ln=True, align='C')
+            pdf.set_font("Arial", size=10)
+            pdf.cell(200, 10, txt=f"File: {filename}", ln=True)
+            pdf.cell(200, 10, txt=f"Total Îlots: {total_ilots}", ln=True)
+            pdf.cell(200, 10, txt=f"Total Area: {total_area:.1f} m²", ln=True)
+            pdf.cell(200, 10, txt=f"Coverage: {coverage:.1f}%", ln=True)
+            pdf.cell(200, 10, txt=f"Corridors: {len(corridors)}", ln=True)
+            pdf.cell(200, 10, txt=f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True)
+            # Add bar chart as image
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as chart_img:
+                fig2.write_image(chart_img.name)
+                pdf.image(chart_img.name, x=10, y=pdf.get_y()+5, w=100)
+                pdf.ln(60)
+            # Add floorplan as image
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as plan_img:
+                fig.write_image(plan_img.name)
+                pdf.image(plan_img.name, x=10, y=pdf.get_y()+5, w=180)
+            # Save PDF to temp file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+                pdf.output(tmp_pdf.name)
+                with open(tmp_pdf.name, "rb") as f:
+                    st.download_button("⬇️ Download PDF", f.read(), file_name=f"analysis_{filename}.pdf", mime="application/pdf")
+
+    # Image Export (floorplan)
     with col2:
+        if st.button("🖼️ Export as Image"):
+            import tempfile
+            fig.write_image("temp_export.png")
+            with open("temp_export.png", "rb") as img_file:
+                st.download_button("⬇️ Download PNG", img_file.read(), file_name=f"ilot_layout_{filename}.png", mime="image/png")
+
+    # Image Export (bar chart)
+    with col3:
+        if st.button("📊 Export Chart"):
+            import tempfile
+            fig2.write_image("temp_chart.png")
+            with open("temp_chart.png", "rb") as img_file:
+                st.download_button("⬇️ Download Chart", img_file.read(), file_name=f"ilot_chart_{filename}.png", mime="image/png")
+
+    # Save Project (placeholder)
+    with col4:
         if st.button("💾 Save Project"):
             st.success("Project saved!")
-    
-    with col3:
-        data = {
+
+    # JSON Export (full geometry)
+    with col5:
+        export_data = {
             'filename': filename,
             'total_ilots': total_ilots,
             'total_area': total_area,
             'coverage': coverage,
             'zones_detected': len(zones),
             'corridors_generated': len(corridors),
-            'category_distribution': category_counts
+            'category_distribution': category_counts,
+            'ilots': [
+                {
+                    'area': ilot['area'],
+                    'category': ilot['category'],
+                    'position': ilot['position'],
+                    'width': ilot['width'],
+                    'height': ilot['height'],
+                    'polygon': list(ilot['polygon'].exterior.coords)
+                } for ilot in ilots
+            ],
+            'corridors': [
+                list(c['polygon'].exterior.coords) for c in corridors if hasattr(c, 'polygon') else []
+            ]
         }
         st.download_button(
-            "📊 Download Data",
-            json.dumps(data, indent=2),
+            "⬇️ Download Data",
+            json.dumps(export_data, indent=2),
             f"analysis_{filename}.json"
         )
+
+    # DXF Export (îlots and corridors with custom layers, advanced metadata, and user annotation prompt)
+    with col6:
+        if st.button("📐 Export DXF"):
+            import tempfile
+            import ezdxf
+            from shapely.geometry import Polygon
+            # Prompt for user annotation and project metadata
+            with st.form(key="dxf_export_form", clear_on_submit=False):
+                user_note = st.text_input("Add a project note or annotation (optional)", "")
+                author = st.text_input("Author", os.getenv("USERNAME") or "")
+                org = st.text_input("Organization", "")
+                submit = st.form_submit_button("Generate DXF")
+            if submit:
+                doc = ezdxf.new(dxfversion="R2010")
+                msp = doc.modelspace()
+                # Create layers
+                doc.layers.new(name="ILOTS", dxfattribs={"color": 2})
+                doc.layers.new(name="CORRIDORS", dxfattribs={"color": 5})
+                doc.layers.new(name="WALLS", dxfattribs={"color": 7})
+                doc.layers.new(name="RESTRICTED", dxfattribs={"color": 4})
+                doc.layers.new(name="ENTRANCES", dxfattribs={"color": 1})
+                doc.layers.new(name="ANNOTATIONS", dxfattribs={"color": 6})
+                # Add DXF metadata (header vars)
+                doc.header["$PROJECTNAME"] = filename
+                doc.header["$AUTHOR"] = author
+                doc.header["$ORGANIZATION"] = org
+                doc.header["$CREATIONDATE"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                # Draw îlots
+                for idx, ilot in enumerate(ilots):
+                    coords = list(ilot['polygon'].exterior.coords)
+                    msp.add_lwpolyline(coords, close=True, dxfattribs={"layer": "ILOTS"})
+                    # Add annotation (area)
+                    cx, cy = ilot['position']
+                    msp.add_text(f"{ilot['area']:.1f}m²", dxfattribs={"layer": "ANNOTATIONS", "height": 0.7}).set_pos((cx, cy), align="CENTER")
+                # Draw corridors
+                for idx, corridor in enumerate(corridors):
+                    if hasattr(corridor, 'polygon'):
+                        coords = list(corridor['polygon'].exterior.coords)
+                        msp.add_lwpolyline(coords, close=True, dxfattribs={"layer": "CORRIDORS"})
+                    elif hasattr(corridor, 'exterior'):
+                        coords = list(corridor.exterior.coords)
+                        msp.add_lwpolyline(coords, close=True, dxfattribs={"layer": "CORRIDORS"})
+                # Draw zones (walls, restricted, entrances)
+                for zone in zones:
+                    coords = list(zone['polygon'].exterior.coords)
+                    layer = "WALLS"
+                    if zone['type'] == 'wall':
+                        layer = "WALLS"
+                    elif zone['type'] == 'restricted':
+                        layer = "RESTRICTED"
+                    elif zone['type'] == 'entrance':
+                        layer = "ENTRANCES"
+                    msp.add_lwpolyline(coords, close=True, dxfattribs={"layer": layer})
+                # User annotation (project title, note, author, org)
+                msp.add_text(f"Project: {filename}", dxfattribs={"layer": "ANNOTATIONS", "height": 1.2}).set_pos((bounds[0]+2, bounds[3]-2), align="LEFT")
+                if user_note:
+                    msp.add_text(f"Note: {user_note}", dxfattribs={"layer": "ANNOTATIONS", "height": 1.0}).set_pos((bounds[0]+2, bounds[3]-4), align="LEFT")
+                if author:
+                    msp.add_text(f"Author: {author}", dxfattribs={"layer": "ANNOTATIONS", "height": 0.8}).set_pos((bounds[0]+2, bounds[3]-6), align="LEFT")
+                if org:
+                    msp.add_text(f"Org: {org}", dxfattribs={"layer": "ANNOTATIONS", "height": 0.8}).set_pos((bounds[0]+2, bounds[3]-7), align="LEFT")
+                # Save DXF
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as dxf_file:
+                    doc.saveas(dxf_file.name)
+                    with open(dxf_file.name, "rb") as f:
+                        st.download_button("⬇️ Download DXF", f.read(), file_name=f"ilot_layout_{filename}.dxf", mime="application/dxf")
 
 if __name__ == "__main__":
     main()

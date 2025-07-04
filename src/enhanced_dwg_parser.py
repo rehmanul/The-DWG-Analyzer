@@ -3,6 +3,7 @@ Enhanced DWG parser with robust error handling and multiple parsing strategies
 """
 
 import logging
+import os
 import tempfile
 import os
 from pathlib import Path
@@ -11,6 +12,12 @@ import ezdxf
 from src.robust_error_handler import RobustErrorHandler
 from src.enhanced_zone_detector import EnhancedZoneDetector
 
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    handlers=[logging.StreamHandler()]
+)
 logger = logging.getLogger(__name__)
 
 class EnhancedDWGParser:
@@ -49,8 +56,8 @@ class EnhancedDWGParser:
                 except Exception as e:
                     logger.warning(f"DWG parsing method {i} failed: {e}")
                     continue
-
         # Final fallback
+        logger.error(f"All parsing methods failed for {file_path}. Returning fallback.")
         return self._create_intelligent_fallback(file_path)
 
     def _parse_with_ezdxf(self, file_path: str) -> Dict[str, Any]:

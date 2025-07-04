@@ -1,4 +1,3 @@
-import ezdxf
 import tempfile
 import os
 import subprocess
@@ -6,6 +5,16 @@ import shutil
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 from shapely.geometry import Polygon, Point
+
+# Robust logging setup
+import logging
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
 
 
 class DWGParser:
@@ -50,13 +59,12 @@ class DWGParser:
                     from .enhanced_dwg_parser import parse_dwg_file_enhanced
                     result = parse_dwg_file_enhanced(temp_file_path)
                     if result and result.get('zones'):
-                        print(f"Enhanced parser successful: {result.get('parsing_method', 'unknown')}")
+                        logger.info(f"Enhanced parser successful: {result.get('parsing_method', 'unknown')}")
                         zones = result['zones']
                         if zones:  # Only return if we actually got zones
                             return self._validate_and_clean_zones(zones)
                 except Exception as e:
-                    print(f"Enhanced parser failed: {e}")
-                
+                    logger.warning(f"Enhanced parser failed: {e}")
                 # If enhanced parser failed, don't immediately fallback
                 # Let it try DXF parsing methods below
                 print(f"DWG file {filename} will be processed with DXF methods")
