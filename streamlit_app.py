@@ -49,6 +49,7 @@ st.markdown("""
 }
 .feature-card {
     background: white;
+    color: #222;
     padding: 1rem;
     border-radius: 6px;
     box-shadow: 0 1.5px 3px rgba(0,0,0,0.08);
@@ -72,29 +73,18 @@ button, .stButton>button {
     padding: 0.3rem 0.8rem !important;
 }
 .live-banner {
-    background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
-    padding: 0.5rem 0.2rem;
-    border-radius: 8px;
-    color: white;
-    text-align: center;
-    margin-bottom: 0.7rem;
-    margin-top: 0.2rem;
-    font-size: 1.05rem;
-    width: 100%;
-    max-width: 700px;
-    margin-left: auto;
-    margin-right: auto;
+    display: none;
 }
 </style>
 """, unsafe_allow_html=True)
 
 def main():
-    # Header (smaller, more compact)
+    # Header (smaller, more compact, live banner removed)
     st.markdown("""
-    <div class="main-header" style="padding:0.7rem 0.2rem; font-size:1.05rem;">
-        <h1 style="font-size:1.3rem;margin-bottom:0.15em;">🏗️ AI ARCHITECTURAL ANALYZER PRO</h1>
-        <h2 style="font-size:0.95rem;margin-bottom:0.15em;">Enterprise Edition - Professional CAD Analysis</h2>
-        <p style="font-size:0.85rem;">Advanced AI • Real-time Processing • Professional Export</p>
+    <div class="main-header" style="padding:0.5rem 0.1rem; font-size:0.95rem;">
+        <h1 style="font-size:1.05rem;margin-bottom:0.08em;">🏗️ AI ARCHITECTURAL ANALYZER PRO</h1>
+        <h2 style="font-size:0.8rem;margin-bottom:0.08em;">Enterprise Edition - Professional CAD Analysis</h2>
+        <p style="font-size:0.7rem;">Advanced AI • Real-time Processing • Professional Export</p>
     </div>
     """, unsafe_allow_html=True)
     
