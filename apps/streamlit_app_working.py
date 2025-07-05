@@ -8,20 +8,30 @@ import json
 import math
 import random
 
-st.set_page_config(page_title="🏗️ AI Îlot Placement PRO", page_icon="🏗️", layout="wide")
+# Configure page
+st.set_page_config(
+    page_title="🏗️ AI Architectural Space Analyzer PRO",
+    page_icon="🏗️",
+    layout="wide"
+)
 
+# Initialize session state
+if 'current_tab' not in st.session_state:
+    st.session_state.current_tab = 'ilot'
 if 'dxf_loaded' not in st.session_state:
     st.session_state.dxf_loaded = False
 if 'zones' not in st.session_state:
-    st.session_state.zones = {}
+    st.session_state.zones = []
 if 'ilots' not in st.session_state:
     st.session_state.ilots = []
 if 'corridors' not in st.session_state:
     st.session_state.corridors = []
 
-def parse_dxf(uploaded_file):
+def parse_dxf_working(uploaded_file):
+    """Working DXF parser"""
     try:
         import ezdxf
+        
         with tempfile.NamedTemporaryFile(suffix='.dxf', delete=False) as tmp:
             tmp.write(uploaded_file.getvalue())
             tmp_path = tmp.name
@@ -41,30 +51,45 @@ def parse_dxf(uploaded_file):
                     
                     if len(points) >= 2:
                         color = getattr(entity.dxf, 'color', 7)
-                        entities.append({'points': points, 'color': color})
+                        entities.append({
+                            'points': points,
+                            'color': color,
+                            'layer': getattr(entity.dxf, 'layer', '0')
+                        })
                 except:
                     continue
         
         os.unlink(tmp_path)
         return entities
+        
     except Exception as e:
-        st.error(f"DXF Error: {str(e)}")
+        st.error(f"DXF parsing error: {str(e)}")
         return []
 
-def classify_zones(entities):
-    walls, restricted, entrances, available = [], [], [], []
+def classify_zones_working(entities):
+    """Classify zones by color - working version"""
+    walls = []
+    restricted = []
+    entrances = []
+    available = []
     
     for entity in entities:
         color = entity.get('color', 7)
-        if color in [0, 7]:
+        points = entity.get('points', [])
+        
+        if len(points) < 2:
+            continue
+            
+        if color in [0, 7]:  # Black/white - walls
             walls.append(entity)
-        elif color == 5:
+        elif color == 5:  # Blue - restricted
             restricted.append(entity)
-        elif color == 1:
+        elif color == 1:  # Red - entrances
             entrances.append(entity)
         else:
             available.append(entity)
     
+    # Create default available area if none specified
     if not available and entities:
         all_points = []
         for entity in entities:
@@ -76,14 +101,25 @@ def classify_zones(entities):
             min_y = min(p[1] for p in all_points) - 1
             max_y = max(p[1] for p in all_points) + 1
             
-            available = [{'points': [(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)], 'color': 8}]
+            available = [{
+                'points': [(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)],
+                'color': 8,
+                'layer': 'AVAILABLE'
+            }]
     
-    return {'walls': walls, 'restricted': restricted, 'entrances': entrances, 'available': available}
+    return {
+        'walls': walls,
+        'restricted': restricted,
+        'entrances': entrances,
+        'available': available
+    }
 
-def generate_ilots(zones, config, total_ilots=50):
+def generate_ilots_working(zones, config, total_ilots=50):
+    """Generate îlots - working implementation"""
     if not zones.get('available'):
         return [], []
     
+    # Get placement area bounds
     all_points = []
     for zone in zones['available']:
         all_points.extend(zone['points'])
@@ -96,6 +132,7 @@ def generate_ilots(zones, config, total_ilots=50):
     min_y = min(p[1] for p in all_points)
     max_y = max(p[1] for p in all_points)
     
+    # Generate îlots by category
     ilots = []
     categories = [
         ('0-1m²', 0.7, 1.0, config.get('0-1', 0.1), '#FF6B6B'),
@@ -108,15 +145,19 @@ def generate_ilots(zones, config, total_ilots=50):
         count = max(1, int(total_ilots * percentage))
         
         for i in range(count):
+            # Random size within category
             side_length = random.uniform(min_size, max_size)
             width = side_length * random.uniform(0.8, 1.4)
             height = side_length * side_length / width
             area = width * height
             
+            # Try to place îlot
+            placed = False
             for attempt in range(100):
                 x = random.uniform(min_x + width/2 + 1, max_x - width/2 - 1)
                 y = random.uniform(min_y + height/2 + 1, max_y - height/2 - 1)
                 
+                # Check overlap with existing îlots
                 overlap = False
                 for existing in ilots:
                     dx = abs(x - existing['x'])
@@ -143,21 +184,28 @@ def generate_ilots(zones, config, total_ilots=50):
                             (x - width/2, y + height/2)
                         ]
                     })
+                    placed = True
                     break
     
-    corridors = generate_corridors(ilots)
+    # Generate corridors between îlot groups
+    corridors = generate_corridors_working(ilots)
+    
     return ilots, corridors
 
-def generate_corridors(ilots):
+def generate_corridors_working(ilots):
+    """Generate corridors between îlot rows"""
     if len(ilots) < 4:
         return []
     
     corridors = []
+    
+    # Sort îlots by Y coordinate to find rows
     sorted_ilots = sorted(ilots, key=lambda i: i['y'])
     
+    # Group into rows (îlots with similar Y coordinates)
     rows = []
     current_row = [sorted_ilots[0]]
-    row_tolerance = 2.0
+    row_tolerance = 2.0  # 2m tolerance for same row
     
     for ilot in sorted_ilots[1:]:
         if abs(ilot['y'] - current_row[-1]['y']) <= row_tolerance:
@@ -170,10 +218,12 @@ def generate_corridors(ilots):
     if len(current_row) >= 2:
         rows.append(current_row)
     
+    # Create corridors between adjacent rows
     for i in range(len(rows) - 1):
         row1 = rows[i]
         row2 = rows[i + 1]
         
+        # Find overlapping X range
         row1_min_x = min(ilot['x'] - ilot['width']/2 for ilot in row1)
         row1_max_x = max(ilot['x'] + ilot['width']/2 for ilot in row1)
         row2_min_x = min(ilot['x'] - ilot['width']/2 for ilot in row2)
@@ -183,6 +233,7 @@ def generate_corridors(ilots):
         corridor_max_x = min(row1_max_x, row2_max_x)
         
         if corridor_max_x > corridor_min_x:
+            # Find Y positions
             row1_max_y = max(ilot['y'] + ilot['height']/2 for ilot in row1)
             row2_min_y = min(ilot['y'] - ilot['height']/2 for ilot in row2)
             
@@ -192,6 +243,9 @@ def generate_corridors(ilots):
                 
                 corridors.append({
                     'id': f'corridor_{i}',
+                    'x1': corridor_min_x, 'x2': corridor_max_x,
+                    'y1': corridor_y1, 'y2': corridor_y2,
+                    'width': 1.2,
                     'corners': [
                         (corridor_min_x, corridor_y1),
                         (corridor_max_x, corridor_y1),
@@ -202,9 +256,11 @@ def generate_corridors(ilots):
     
     return corridors
 
-def visualize_plan(zones, ilots, corridors):
+def visualize_plan_working(zones, ilots, corridors):
+    """Create working visualization"""
     fig = go.Figure()
     
+    # Add zones by type
     zone_configs = {
         'walls': {'color': 'black', 'name': 'Walls', 'width': 3},
         'restricted': {'color': 'lightblue', 'name': 'Restricted', 'width': 2},
@@ -221,6 +277,7 @@ def visualize_plan(zones, ilots, corridors):
                 x_coords = [p[0] for p in points]
                 y_coords = [p[1] for p in points]
                 
+                # Close polygon if more than 2 points
                 if len(points) > 2:
                     x_coords.append(points[0][0])
                     y_coords.append(points[0][1])
@@ -238,6 +295,7 @@ def visualize_plan(zones, ilots, corridors):
                     hoverinfo='skip'
                 ))
     
+    # Add îlots
     for ilot in ilots:
         corners = ilot['corners']
         x_coords = [c[0] for c in corners] + [corners[0][0]]
@@ -254,6 +312,7 @@ def visualize_plan(zones, ilots, corridors):
             showlegend=False
         ))
     
+    # Add corridors
     for corridor in corridors:
         corners = corridor['corners']
         x_coords = [c[0] for c in corners] + [corners[0][0]]
@@ -285,7 +344,8 @@ def visualize_plan(zones, ilots, corridors):
 st.title("🏗️ AI Architectural Space Analyzer PRO")
 st.markdown("**Professional îlot placement with constraint compliance and corridor generation**")
 
-tab1, tab2 = st.tabs(["🏗️ Îlot Placement", "📊 Results"])
+# Tabs
+tab1, tab2 = st.tabs(["🏗️ Îlot Placement", "📊 Analysis Results"])
 
 with tab1:
     st.subheader("📁 Upload DXF Plan")
@@ -298,12 +358,13 @@ with tab1:
     
     if uploaded_file:
         with st.spinner("Loading DXF file..."):
-            entities = parse_dxf(uploaded_file)
+            entities = parse_dxf_working(uploaded_file)
             if entities:
-                st.session_state.zones = classify_zones(entities)
+                st.session_state.zones = classify_zones_working(entities)
                 st.session_state.dxf_loaded = True
                 st.success(f"✅ Successfully loaded {len(entities)} entities from DXF")
                 
+                # Show zone summary
                 zone_summary = []
                 for zone_type, zone_list in st.session_state.zones.items():
                     if zone_list:
@@ -314,18 +375,19 @@ with tab1:
             else:
                 st.error("❌ Failed to parse DXF file")
     
+    # Configuration section
     if st.session_state.dxf_loaded:
         st.subheader("📐 Îlot Configuration")
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            size_0_1 = st.slider("0-1m² (%)", 0, 50, 10) / 100
+            size_0_1 = st.slider("0-1m² (%)", 0, 50, 10, key="size_0_1") / 100
         with col2:
-            size_1_3 = st.slider("1-3m² (%)", 0, 50, 25) / 100
+            size_1_3 = st.slider("1-3m² (%)", 0, 50, 25, key="size_1_3") / 100
         with col3:
-            size_3_5 = st.slider("3-5m² (%)", 0, 50, 30) / 100
+            size_3_5 = st.slider("3-5m² (%)", 0, 50, 30, key="size_3_5") / 100
         with col4:
-            size_5_10 = st.slider("5-10m² (%)", 0, 50, 35) / 100
+            size_5_10 = st.slider("5-10m² (%)", 0, 50, 35, key="size_5_10") / 100
         
         total_percent = size_0_1 + size_1_3 + size_3_5 + size_5_10
         if abs(total_percent - 1.0) > 0.01:
@@ -333,15 +395,21 @@ with tab1:
         
         col1, col2 = st.columns(2)
         with col1:
-            total_ilots = st.number_input("Total Îlots", 10, 100, 40)
+            total_ilots = st.number_input("Total Îlots", 10, 100, 40, key="total_ilots")
         with col2:
-            corridor_width = st.slider("Corridor Width (cm)", 80, 200, 120)
+            corridor_width = st.slider("Corridor Width (cm)", 80, 200, 120, key="corridor_width")
         
+        # Generate button
         if st.button("🤖 Generate Îlot Layout", type="primary"):
             with st.spinner("Generating optimal îlot placement..."):
-                config = {'0-1': size_0_1, '1-3': size_1_3, '3-5': size_3_5, '5-10': size_5_10}
+                config = {
+                    '0-1': size_0_1,
+                    '1-3': size_1_3,
+                    '3-5': size_3_5,
+                    '5-10': size_5_10
+                }
                 
-                ilots, corridors = generate_ilots(st.session_state.zones, config, total_ilots)
+                ilots, corridors = generate_ilots_working(st.session_state.zones, config, total_ilots)
                 st.session_state.ilots = ilots
                 st.session_state.corridors = corridors
                 
@@ -352,6 +420,7 @@ with tab1:
 
 with tab2:
     if st.session_state.ilots:
+        # Results metrics
         st.subheader("📊 Placement Results")
         
         col1, col2, col3, col4 = st.columns(4)
@@ -366,10 +435,12 @@ with tab2:
             avg_area = total_area / len(st.session_state.ilots) if st.session_state.ilots else 0
             st.metric("Avg Îlot Size", f"{avg_area:.1f} m²")
         
+        # Visualization
         st.subheader("🎨 Plan Visualization")
-        fig = visualize_plan(st.session_state.zones, st.session_state.ilots, st.session_state.corridors)
+        fig = visualize_plan_working(st.session_state.zones, st.session_state.ilots, st.session_state.corridors)
         st.plotly_chart(fig, use_container_width=True)
         
+        # Category breakdown
         st.subheader("📋 Îlot Breakdown by Category")
         categories = {}
         for ilot in st.session_state.ilots:
@@ -388,26 +459,34 @@ with tab2:
             with col3:
                 st.write(f"{data['total_area']:.1f} m² total")
         
+        # Export section
         st.subheader("📤 Export Results")
-        if st.button("📥 Export Summary (JSON)"):
-            export_data = {
-                'timestamp': datetime.now().isoformat(),
-                'total_ilots': len(st.session_state.ilots),
-                'total_corridors': len(st.session_state.corridors),
-                'categories': categories,
-                'total_area': total_area
-            }
-            
-            st.download_button(
-                "Download JSON Report",
-                data=json.dumps(export_data, indent=2),
-                file_name=f"ilot_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                mime="application/json"
-            )
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("📥 Export Summary (JSON)"):
+                export_data = {
+                    'timestamp': datetime.now().isoformat(),
+                    'total_ilots': len(st.session_state.ilots),
+                    'total_corridors': len(st.session_state.corridors),
+                    'categories': categories,
+                    'total_area': total_area
+                }
+                
+                st.download_button(
+                    "Download JSON Report",
+                    data=json.dumps(export_data, indent=2),
+                    file_name=f"ilot_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json"
+                )
+        
+        with col2:
+            st.info("DXF export available in full version")
     
     else:
         st.info("Generate îlot layout first to see results")
 
+# Instructions
 if not st.session_state.dxf_loaded:
     st.subheader("💡 How to Use")
     st.markdown("""

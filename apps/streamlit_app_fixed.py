@@ -10,6 +10,7 @@ import random
 
 st.set_page_config(page_title="🏗️ AI Îlot Placement PRO", page_icon="🏗️", layout="wide")
 
+# Initialize session state
 if 'dxf_loaded' not in st.session_state:
     st.session_state.dxf_loaded = False
 if 'zones' not in st.session_state:
