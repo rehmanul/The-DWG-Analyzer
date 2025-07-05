@@ -42,6 +42,7 @@ from src.ai_analyzer import AIAnalyzer
 from src.visualization import PlanVisualizer
 from src.export_utils import ExportManager
 from src.optimization import PlacementOptimizer
+from src.enhanced_ilot_engine import EnhancedIlotEngine
 
 # Import database and AI
 from src.database import DatabaseManager
@@ -1276,7 +1277,7 @@ def display_main_interface(components):
     if st.session_state.advanced_mode:
         # Advanced interface with more tabs
         tabs = st.tabs([
-            "Analysis Dashboard", "Interactive Visualization", "Construction Plans",
+            "Analysis Dashboard", "Interactive Visualization", "Îlot Placement PRO", "Construction Plans",
             "Advanced Statistics", "BIM Integration", "Furniture Catalog",
             "Database & Projects", "CAD Export", "Settings"
         ])
@@ -1286,23 +1287,25 @@ def display_main_interface(components):
         with tabs[1]:
             display_enhanced_visualization(components)
         with tabs[2]:
-            display_enterprise_construction_plans(components)
+            display_ilot_placement_interface()
         with tabs[3]:
-            display_advanced_statistics(components)
+            display_enterprise_construction_plans(components)
         with tabs[4]:
-            display_bim_integration(components)
+            display_advanced_statistics(components)
         with tabs[5]:
-            display_furniture_catalog(components)
+            display_bim_integration(components)
         with tabs[6]:
-            display_database_interface(components)
+            display_furniture_catalog(components)
         with tabs[7]:
-            display_cad_export_interface(components)
+            display_database_interface(components)
         with tabs[8]:
+            display_cad_export_interface(components)
+        with tabs[9]:
             display_advanced_settings(components)
     else:
         # Standard interface using full width
         tabs = st.tabs([
-            "Analysis Results", "Plan Visualization", "Construction Plans", "Statistics", "Export"
+            "Analysis Results", "Plan Visualization", "Îlot Placement", "Construction Plans", "Statistics", "Export"
         ])
 
         with tabs[0]:
@@ -1310,10 +1313,12 @@ def display_main_interface(components):
         with tabs[1]:
             display_plan_visualization()
         with tabs[2]:
-            display_enterprise_construction_plans(components)
+            display_ilot_placement_interface()
         with tabs[3]:
-            display_statistics()
+            display_enterprise_construction_plans(components)
         with tabs[4]:
+            display_statistics()
+        with tabs[5]:
             st.subheader("📤 Export & Reports")
             if st.session_state.analysis_results:
                 col1, col2 = st.columns(2)
@@ -3261,6 +3266,284 @@ def display_enterprise_construction_plans(components):
             st.write("• Technical specification analysis")
             st.write("• Construction detail breakdown")
             st.write("• Professional documentation review")
+
+def display_ilot_placement_interface():
+    """Display îlot placement interface"""
+    st.subheader("🏗️ Professional Îlot Placement")
+    
+    if not st.session_state.zones:
+        st.info("Load a DXF file to start îlot placement")
+        return
+    
+    # Initialize îlot session state
+    if 'ilot_config' not in st.session_state:
+        st.session_state.ilot_config = {
+            '0-1': 0.10,
+            '1-3': 0.25, 
+            '3-5': 0.30,
+            '5-10': 0.35
+        }
+    if 'placed_ilots' not in st.session_state:
+        st.session_state.placed_ilots = []
+    if 'ilot_corridors' not in st.session_state:
+        st.session_state.ilot_corridors = []
+    
+    # Configuration panel
+    st.subheader("📐 Îlot Configuration")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        size_0_1 = st.slider("0-1m² (%)", 0, 50, int(st.session_state.ilot_config['0-1']*100)) / 100
+    with col2:
+        size_1_3 = st.slider("1-3m² (%)", 0, 50, int(st.session_state.ilot_config['1-3']*100)) / 100
+    with col3:
+        size_3_5 = st.slider("3-5m² (%)", 0, 50, int(st.session_state.ilot_config['3-5']*100)) / 100
+    with col4:
+        size_5_10 = st.slider("5-10m² (%)", 0, 50, int(st.session_state.ilot_config['5-10']*100)) / 100
+    
+    # Validate percentages
+    total_percent = size_0_1 + size_1_3 + size_3_5 + size_5_10
+    if abs(total_percent - 1.0) > 0.01:
+        st.warning(f"Total: {total_percent:.1%} (should be 100%)")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        total_ilots = st.number_input("Total Îlots", 10, 200, 50)
+    with col2:
+        corridor_width = st.slider("Corridor Width (cm)", 80, 200, 120)
+    
+    # Generate îlots button
+    if st.button("🤖 Generate Îlot Layout", type="primary"):
+        with st.spinner("Generating optimal îlot placement..."):
+            try:
+                # Convert zones to DXF entities format
+                dxf_entities = []
+                for zone in st.session_state.zones:
+                    entity = {
+                        'type': 'LWPOLYLINE',
+                        'color': 7,  # Default color
+                        'geometry': zone.get('points', [])
+                    }
+                    dxf_entities.append(entity)
+                
+                # Initialize engine
+                engine = EnhancedIlotEngine()
+                
+                # Process layout
+                profile_config = {
+                    '0-1': size_0_1,
+                    '1-3': size_1_3,
+                    '3-5': size_3_5,
+                    '5-10': size_5_10
+                }
+                
+                result = engine.process_complete_layout(
+                    dxf_entities, profile_config, total_ilots
+                )
+                
+                if result['success']:
+                    st.session_state.placed_ilots = result['ilots']
+                    st.session_state.ilot_corridors = result['corridors']
+                    st.session_state.ilot_metrics = result['metrics']
+                    
+                    placed_count = sum(1 for i in result['ilots'] if i.placed)
+                    st.success(f"✅ Generated {placed_count} îlots and {len(result['corridors'])} corridors")
+                else:
+                    st.error("❌ Failed to generate îlot layout")
+                    
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+    
+    # Display results
+    if st.session_state.placed_ilots:
+        # Metrics
+        st.subheader("📊 Results")
+        metrics = st.session_state.get('ilot_metrics', {})
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Îlots", metrics.get('total_ilots', 0))
+        with col2:
+            st.metric("Placed", metrics.get('placed_ilots', 0))
+        with col3:
+            st.metric("Corridors", metrics.get('corridor_count', 0))
+        with col4:
+            rate = metrics.get('placement_rate', 0)
+            st.metric("Success Rate", f"{rate:.1%}")
+        
+        # Visualization
+        st.subheader("🎨 Îlot Plan")
+        fig = create_ilot_visualization(
+            st.session_state.zones,
+            st.session_state.placed_ilots,
+            st.session_state.ilot_corridors
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Export
+        st.subheader("📤 Export")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("📥 Export DXF"):
+                dxf_data = export_ilot_dxf(
+                    st.session_state.placed_ilots,
+                    st.session_state.ilot_corridors
+                )
+                if dxf_data:
+                    st.download_button(
+                        "Download DXF",
+                        data=dxf_data,
+                        file_name=f"ilot_layout_{datetime.now().strftime('%Y%m%d_%H%M%S')}.dxf",
+                        mime="application/octet-stream"
+                    )
+        
+        with col2:
+            if st.button("📊 Export Report"):
+                report_data = {
+                    'timestamp': datetime.now().isoformat(),
+                    'configuration': {
+                        '0-1m²': size_0_1,
+                        '1-3m²': size_1_3,
+                        '3-5m²': size_3_5,
+                        '5-10m²': size_5_10
+                    },
+                    'metrics': metrics
+                }
+                
+                st.download_button(
+                    "Download Report",
+                    data=json.dumps(report_data, indent=2),
+                    file_name=f"ilot_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json"
+                )
+
+def create_ilot_visualization(zones, placed_ilots, corridors):
+    """Create îlot placement visualization"""
+    fig = go.Figure()
+    
+    # Add zones as background
+    for i, zone in enumerate(zones):
+        points = zone.get('points', [])
+        if len(points) >= 3:
+            x_coords = [p[0] for p in points] + [points[0][0]]
+            y_coords = [p[1] for p in points] + [points[0][1]]
+            fig.add_trace(go.Scatter(
+                x=x_coords, y=y_coords,
+                fill='toself',
+                fillcolor='rgba(200,200,200,0.3)',
+                line=dict(color='gray', width=1),
+                name=f'Zone {i+1}',
+                showlegend=False
+            ))
+    
+    # Add îlots with category colors
+    category_colors = {
+        '0-1m²': '#FF6B6B',
+        '1-3m²': '#4ECDC4',
+        '3-5m²': '#45B7D1', 
+        '5-10m²': '#96CEB4'
+    }
+    
+    for ilot in placed_ilots:
+        if ilot.placed:
+            bounds = ilot.geometry.bounds
+            x_coords = [bounds[0], bounds[2], bounds[2], bounds[0], bounds[0]]
+            y_coords = [bounds[1], bounds[1], bounds[3], bounds[3], bounds[1]]
+            
+            color = category_colors.get(ilot.category, '#34495E')
+            
+            fig.add_trace(go.Scatter(
+                x=x_coords, y=y_coords,
+                fill='toself',
+                fillcolor=color,
+                line=dict(color=color, width=2),
+                name=f'{ilot.category}',
+                text=f'{ilot.id}<br>{ilot.area:.1f}m²',
+                hoverinfo='text'
+            ))
+    
+    # Add corridors
+    for corridor in corridors:
+        geom = corridor['geometry']
+        bounds = geom.bounds
+        x_coords = [bounds[0], bounds[2], bounds[2], bounds[0], bounds[0]]
+        y_coords = [bounds[1], bounds[1], bounds[3], bounds[3], bounds[1]]
+        
+        fig.add_trace(go.Scatter(
+            x=x_coords, y=y_coords,
+            fill='toself',
+            fillcolor='rgba(255,193,7,0.7)',
+            line=dict(color='orange', width=2),
+            name='Corridor',
+            showlegend=False
+        ))
+    
+    fig.update_layout(
+        title="Îlot Placement Plan",
+        xaxis_title="X (meters)",
+        yaxis_title="Y (meters)",
+        xaxis=dict(scaleanchor="y", scaleratio=1),
+        showlegend=True,
+        height=600
+    )
+    
+    return fig
+
+def export_ilot_dxf(placed_ilots, corridors):
+    """Export îlots to DXF format"""
+    try:
+        import ezdxf
+        
+        doc = ezdxf.new('R2010')
+        msp = doc.modelspace()
+        
+        # Add îlots
+        for ilot in placed_ilots:
+            if ilot.placed:
+                bounds = ilot.geometry.bounds
+                corners = [
+                    (bounds[0], bounds[1], 0),
+                    (bounds[2], bounds[1], 0),
+                    (bounds[2], bounds[3], 0),
+                    (bounds[0], bounds[3], 0)
+                ]
+                msp.add_lwpolyline(corners, close=True, 
+                                 dxfattribs={'color': 3, 'layer': 'ILOTS'})
+                
+                # Add label
+                center_x = (bounds[0] + bounds[2]) / 2
+                center_y = (bounds[1] + bounds[3]) / 2
+                msp.add_text(
+                    f"{ilot.id}\n{ilot.area:.1f}m²",
+                    dxfattribs={'color': 3, 'height': 0.5}
+                ).set_pos((center_x, center_y))
+        
+        # Add corridors
+        for corridor in corridors:
+            geom = corridor['geometry']
+            bounds = geom.bounds
+            corners = [
+                (bounds[0], bounds[1], 0),
+                (bounds[2], bounds[1], 0),
+                (bounds[2], bounds[3], 0),
+                (bounds[0], bounds[3], 0)
+            ]
+            msp.add_lwpolyline(corners, close=True, 
+                             dxfattribs={'color': 2, 'layer': 'CORRIDORS'})
+        
+        # Save to bytes
+        with tempfile.NamedTemporaryFile(suffix='.dxf', delete=False) as tmp:
+            doc.saveas(tmp.name)
+            with open(tmp.name, 'rb') as f:
+                dxf_data = f.read()
+            os.unlink(tmp.name)
+        
+        return dxf_data
+        
+    except Exception as e:
+        st.error(f"Export error: {str(e)}")
+        return None
 
 def generate_report():
     """Generate quick report summary"""

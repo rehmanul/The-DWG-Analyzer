@@ -40,15 +40,52 @@ streamlit run streamlit_app.py
 
 - ✅ AI-powered room detection
 - ✅ Advanced furniture placement
+- ✅ **Professional Îlot Placement** (NEW)
 - ✅ Interactive visualizations
 - ✅ Professional export options
 - ✅ BIM integration
 - ✅ Multi-format support (DWG/DXF)
+- ✅ Corridor generation
+- ✅ Constraint compliance
 
 ## 📊 Database
 
 - **PostgreSQL**: `postgresql://de_de:PUPB8V0s2b3bvNZUblolz7d6UM9bcBzb@dpg-d1h53rffte5s739b1i40-a.oregon-postgres.render.com/dwg_analyzer_pro`
 - **Gemini AI**: Configured and ready
+
+## 🏗️ Îlot Placement PRO (NEW)
+
+**Professional îlot placement with constraint compliance:**
+
+- **Zone Detection**: Automatic detection by color coding
+  - Black lines: Walls (îlots can touch)
+  - Light blue: Restricted areas (avoided)
+  - Red areas: Entrances/exits (buffer zones)
+
+- **Proportional Placement**: User-defined size distribution
+  - 0-1m²: Small utilities, storage
+  - 1-3m²: Bathrooms, closets
+  - 3-5m²: Standard rooms
+  - 5-10m²: Suites, common areas
+
+- **Corridor Generation**: Automatic corridor placement
+  - Between facing îlot rows
+  - Configurable width (80-200cm)
+  - No overlap with îlots
+
+- **Professional Export**: CAD-compatible output
+  - DXF format with layers
+  - JSON reports with metrics
+  - Color-coded visualization
+
+### Quick Start - Îlot Placement
+```bash
+# Launch dedicated îlot app
+python run_ilot_placement.py
+
+# Or use integrated version
+streamlit run apps/streamlit_app.py
+```
 
 ## 🛠️ Development
 
