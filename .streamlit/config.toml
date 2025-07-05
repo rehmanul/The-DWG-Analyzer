@@ -2,11 +2,11 @@
 maxUploadSize = 10000
 maxMessageSize = 10000
 headless = true
-enableCORS = false
+port = 8501
+address = "0.0.0.0"
 
 [client]
 toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false
-serverAddress = "0.0.0.0"
