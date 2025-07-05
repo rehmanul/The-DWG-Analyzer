@@ -81,6 +81,36 @@ def classify_zones(entities):
     return {'walls': walls, 'restricted': restricted, 'entrances': entrances, 'available': available}
 
 def generate_ilots(zones, config, total_ilots=50):
+    """Advanced îlot generation using genetic algorithms"""
+    try:
+        from src.advanced_ilot_engine import AdvancedIlotEngine
+        engine = AdvancedIlotEngine()
+        
+        # Convert zones to advanced format
+        advanced_zones = engine.advanced_zone_detection([{'points': zone['points'], 'color': zone['color']} for zone_list in zones.values() for zone in zone_list])
+        
+        # Generate using advanced algorithms
+        ilots, corridors = engine.advanced_ilot_placement(advanced_zones, config, total_ilots)
+        
+        # Add colors to îlots
+        category_colors = {
+            '0-1m²': '#FF6B6B',
+            '1-3m²': '#4ECDC4', 
+            '3-5m²': '#45B7D1',
+            '5-10m²': '#96CEB4'
+        }
+        
+        for ilot in ilots:
+            ilot['color'] = category_colors.get(ilot['category'], '#34495E')
+        
+        return ilots, corridors
+        
+    except ImportError:
+        # Fallback to basic implementation
+        return generate_ilots_basic(zones, config, total_ilots)
+
+def generate_ilots_basic(zones, config, total_ilots=50):
+    """Basic fallback implementation"""
     if not zones.get('available'):
         return [], []
     
@@ -283,7 +313,14 @@ def visualize_plan(zones, ilots, corridors):
 
 # Main App
 st.title("🏗️ AI Architectural Space Analyzer PRO")
-st.markdown("**Professional îlot placement with constraint compliance and corridor generation**")
+st.markdown("**🚀 Advanced îlot placement with genetic algorithms, DBSCAN clustering, and intelligent corridor generation**")
+
+# Show current mode
+if 'advanced_mode_active' not in st.session_state:
+    st.session_state.advanced_mode_active = True
+
+mode_indicator = "🚀 **ADVANCED MODE**: Genetic algorithms, DBSCAN clustering, intelligent geometry" if st.session_state.advanced_mode_active else "🔧 **BASIC MODE**: Grid-based placement"
+st.info(mode_indicator)
 
 tab1, tab2 = st.tabs(["🏗️ Îlot Placement", "📊 Results"])
 
@@ -337,18 +374,54 @@ with tab1:
         with col2:
             corridor_width = st.slider("Corridor Width (cm)", 80, 200, 120)
         
+        # Advanced/Basic mode toggle
+        use_advanced = st.checkbox("🚀 Use Advanced AI Algorithms", value=True, help="Genetic algorithms, DBSCAN clustering, advanced geometry")
+        
         if st.button("🤖 Generate Îlot Layout", type="primary"):
-            with st.spinner("Generating optimal îlot placement..."):
+            with st.spinner("🧠 Running advanced AI algorithms..." if use_advanced else "Generating îlot placement..."):
                 config = {'0-1': size_0_1, '1-3': size_1_3, '3-5': size_3_5, '5-10': size_5_10}
                 
-                ilots, corridors = generate_ilots(st.session_state.zones, config, total_ilots)
-                st.session_state.ilots = ilots
-                st.session_state.corridors = corridors
-                
-                if ilots:
-                    st.success(f"✅ Successfully generated {len(ilots)} îlots and {len(corridors)} corridors!")
+                if use_advanced:
+                    try:
+                        from src.advanced_ilot_engine import AdvancedIlotEngine
+                        engine = AdvancedIlotEngine()
+                        
+                        # Convert zones to advanced format
+                        entities = []
+                        for zone_type, zone_list in st.session_state.zones.items():
+                            for zone in zone_list:
+                                entities.append({'points': zone['points'], 'color': zone['color']})
+                        
+                        advanced_zones = engine.advanced_zone_detection(entities)
+                        ilots, corridors = engine.advanced_ilot_placement(advanced_zones, config, total_ilots)
+                        
+                        # Add colors
+                        category_colors = {'0-1m²': '#FF6B6B', '1-3m²': '#4ECDC4', '3-5m²': '#45B7D1', '5-10m²': '#96CEB4'}
+                        for ilot in ilots:
+                            ilot['color'] = category_colors.get(ilot['category'], '#34495E')
+                        
+                        st.session_state.ilots = ilots
+                        st.session_state.corridors = corridors
+                        
+                        if ilots:
+                            st.success(f"🚀 Advanced AI: Generated {len(ilots)} îlots and {len(corridors)} corridors with genetic optimization!")
+                        else:
+                            st.error("❌ Advanced placement failed. Try basic mode.")
+                            
+                    except Exception as e:
+                        st.warning(f"Advanced mode failed: {str(e)}. Using basic mode.")
+                        ilots, corridors = generate_ilots_basic(st.session_state.zones, config, total_ilots)
+                        st.session_state.ilots = ilots
+                        st.session_state.corridors = corridors
                 else:
-                    st.error("❌ Failed to generate îlots. Try adjusting parameters.")
+                    ilots, corridors = generate_ilots_basic(st.session_state.zones, config, total_ilots)
+                    st.session_state.ilots = ilots
+                    st.session_state.corridors = corridors
+                    
+                    if ilots:
+                        st.success(f"✅ Basic mode: Generated {len(ilots)} îlots and {len(corridors)} corridors!")
+                    else:
+                        st.error("❌ Failed to generate îlots. Try adjusting parameters.")
 
 with tab2:
     if st.session_state.ilots:
@@ -422,15 +495,27 @@ if not st.session_state.dxf_loaded:
        - 3-5m²: Standard rooms
        - 5-10m²: Suites, common areas
     
-    3. **Generate Layout**: Click to automatically place îlots with corridors
+    3. **Choose Mode**: 
+       - 🚀 **Advanced AI**: Genetic algorithms, DBSCAN clustering, intelligent geometry
+       - 🔧 **Basic**: Simple grid-based placement
     
-    4. **View Results**: See color-coded visualization and export data
+    4. **Generate Layout**: Click to automatically place îlots with corridors
+    
+    5. **View Results**: See color-coded visualization and export data
     """)
     
     st.subheader("🎯 Expected Output")
     st.markdown("""
-    - **Colored îlots** arranged by size category
-    - **Orange corridors** automatically placed between îlot rows
-    - **Constraint compliance** (avoids restricted zones)
-    - **Professional metrics** and export capabilities
+    **🚀 Advanced Mode:**
+    - **Genetic algorithm optimization** for optimal placement
+    - **DBSCAN clustering** for intelligent row detection
+    - **Advanced corridor pathfinding** with geometric analysis
+    - **Constraint compliance** with entrance buffer zones
+    - **Professional hotel layout** with realistic proportions
+    
+    **🔧 Basic Mode:**
+    - **Grid-based placement** with overlap detection
+    - **Simple corridor generation** between rows
+    - **Basic constraint compliance**
+    - **Color-coded visualization**
     """)
