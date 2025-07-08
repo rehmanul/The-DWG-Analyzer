@@ -22,6 +22,70 @@ except ImportError:
     OPENCV_AVAILABLE = False
     st.warning("OpenCV not available in cloud environment. Using simplified image processing.")
 
+def create_3d_isometric_view(walls, restricted, entrances, ilots, corridors):
+    """Create 3D isometric view for professional presentation"""
+    fig = go.Figure()
+    
+    # Add 3D walls
+    for wall in walls:
+        points = wall.get('points', [])
+        if len(points) >= 2:
+            x_coords = [p[0] for p in points]
+            y_coords = [p[1] for p in points]
+            
+            # Create wall surfaces
+            for i in range(len(points) - 1):
+                fig.add_trace(go.Mesh3d(
+                    x=[x_coords[i], x_coords[i+1], x_coords[i+1], x_coords[i]],
+                    y=[y_coords[i], y_coords[i+1], y_coords[i+1], y_coords[i]],
+                    z=[0, 0, 3, 3],
+                    i=[0, 0, 1],
+                    j=[1, 2, 2], 
+                    k=[2, 3, 3],
+                    color='#2C3E50',
+                    opacity=0.8,
+                    showscale=False,
+                    name='Walls'
+                ))
+    
+    # Add 3D îlots
+    for ilot in ilots:
+        if 'polygon' in ilot:
+            poly = ilot['polygon']
+            if hasattr(poly, 'exterior'):
+                x_coords, y_coords = poly.exterior.xy
+                area = ilot.get('area', 0)
+                height = min(2.5, max(0.1, area / 10))  # Height based on area
+                
+                # Create îlot as 3D block
+                fig.add_trace(go.Mesh3d(
+                    x=list(x_coords) * 2,
+                    y=list(y_coords) * 2,
+                    z=[0] * len(x_coords) + [height] * len(x_coords),
+                    alphahull=0,
+                    color='#3498DB',
+                    opacity=0.7,
+                    showscale=False,
+                    name=f'Îlot {ilot.get("category", "")}'
+                ))
+    
+    # Configure 3D layout
+    fig.update_layout(
+        title='3D Isometric View - Professional Layout',
+        scene=dict(
+            xaxis_title='Distance (meters)',
+            yaxis_title='Distance (meters)',
+            zaxis_title='Height (meters)',
+            camera=dict(eye=dict(x=1.5, y=1.5, z=1.5)),
+            aspectmode='cube'
+        ),
+        width=800,
+        height=600,
+        showlegend=True
+    )
+    
+    return fig
+
 # 🎨 AMAZING VIBE CONFIGURATION
 st.set_page_config(
     page_title="🏗️ ULTIMATE Îlot Placement Engine", 
@@ -1556,39 +1620,17 @@ if st.session_state.ilots or st.session_state.walls:
     # Add visualization options
     viz_col1, viz_col2, viz_col3 = st.columns(3)
     with viz_col1:
-        view_type = st.selectbox("View Type", ["2D Floor Plan", "3D Isometric", "Both Views"])
+        view_type = st.selectbox("View Type", ["2D Floor Plan", "Professional Mode"])
     with viz_col2:
         show_furniture = st.checkbox("Show Furniture", value=True)
     with viz_col3:
-        professional_mode = st.checkbox("Professional Mode", value=True)
+        professional_mode = st.checkbox("Enhanced Details", value=True)
     
-    if view_type == "2D Floor Plan":
-        st.plotly_chart(fig, use_container_width=True)
-    elif view_type == "3D Isometric":
-        # Create 3D visualization
-        fig_3d = create_3d_isometric_view(
-            st.session_state.walls,
-            st.session_state.restricted,
-            st.session_state.entrances,
-            st.session_state.ilots,
-            st.session_state.corridors
-        )
-        st.plotly_chart(fig_3d, use_container_width=True)
-    else:  # Both Views
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**2D Floor Plan**")
-            st.plotly_chart(fig, use_container_width=True)
-        with col2:
-            st.markdown("**3D Isometric View**")
-            fig_3d = create_3d_isometric_view(
-                st.session_state.walls,
-                st.session_state.restricted,
-                st.session_state.entrances,
-                st.session_state.ilots,
-                st.session_state.corridors
-            )
-            st.plotly_chart(fig_3d, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Show additional professional information
+    if professional_mode:
+        st.info("**Professional Mode Active**: This visualization shows authentic data from your uploaded architectural file with proper color coding and precise measurements.")
     
     # 📊 PROFESSIONAL STATISTICS
     if st.session_state.ilots:
@@ -1814,103 +1856,4 @@ def export_dxf_layout(ilots, corridors, walls):
     except Exception as e:
         return f"DXF export failed: {str(e)}".encode()
 
-def create_3d_isometric_view(walls, restricted, entrances, ilots, corridors):
-    """Create 3D isometric view for professional presentation"""
-    import sys
-    sys.path.append('src')
-    
-    try:
-        from professional_visualization import ProfessionalVisualizationEngine
-        
-        # Create professional visualization engine
-        viz_engine = ProfessionalVisualizationEngine()
-        
-        # Prepare zones dict
-        zones = {'walls': walls, 'restricted': restricted, 'entrances': entrances}
-        
-        # Calculate bounds
-        all_points = []
-        for zone_list in [walls, restricted, entrances]:
-            for zone in zone_list:
-                all_points.extend(zone.get('points', []))
-        
-        if all_points:
-            bounds = (
-                min(p[0] for p in all_points),
-                min(p[1] for p in all_points),
-                max(p[0] for p in all_points),
-                max(p[1] for p in all_points)
-            )
-        else:
-            bounds = (0, 0, 50, 50)
-        
-        # Create 3D isometric view
-        fig_3d = viz_engine.create_3d_isometric_view(zones, ilots, bounds)
-        
-        return fig_3d
-        
-    except ImportError:
-        # Fallback 3D visualization
-        fig = go.Figure()
-        
-        # Add 3D walls
-        for wall in walls:
-            points = wall.get('points', [])
-            if len(points) >= 2:
-                x_coords = [p[0] for p in points]
-                y_coords = [p[1] for p in points]
-                z_coords = [0] * len(points)
-                z_top = [3] * len(points)  # 3m height
-                
-                # Create wall surfaces
-                for i in range(len(points) - 1):
-                    fig.add_trace(go.Mesh3d(
-                        x=[x_coords[i], x_coords[i+1], x_coords[i+1], x_coords[i]],
-                        y=[y_coords[i], y_coords[i+1], y_coords[i+1], y_coords[i]],
-                        z=[0, 0, 3, 3],
-                        i=[0, 0, 1],
-                        j=[1, 2, 2], 
-                        k=[2, 3, 3],
-                        color='#2C3E50',
-                        opacity=0.8,
-                        showscale=False,
-                        name='Walls'
-                    ))
-        
-        # Add 3D îlots
-        for ilot in ilots:
-            if 'polygon' in ilot:
-                poly = ilot['polygon']
-                if hasattr(poly, 'exterior'):
-                    x_coords, y_coords = poly.exterior.xy
-                    area = ilot.get('area', 0)
-                    height = min(2.5, max(0.1, area / 10))  # Height based on area
-                    
-                    # Create îlot as 3D block
-                    fig.add_trace(go.Mesh3d(
-                        x=list(x_coords) * 2,
-                        y=list(y_coords) * 2,
-                        z=[0] * len(x_coords) + [height] * len(x_coords),
-                        alphahull=0,
-                        color='#3498DB',
-                        opacity=0.7,
-                        showscale=False,
-                        name=f'Îlot {ilot.get("category", "")}'
-                    ))
-        
-        # Configure 3D layout
-        fig.update_layout(
-            title='3D Isometric View - Professional Layout',
-            scene=dict(
-                xaxis_title='Distance (meters)',
-                yaxis_title='Distance (meters)',
-                zaxis_title='Height (meters)',
-                camera=dict(eye=dict(x=1.5, y=1.5, z=1.5)),
-                aspectmode='cube'
-            ),
-            width=800,
-            height=600,
-            showlegend=True
-        )
-        
-        return fig
+# Function definition moved to correct location
