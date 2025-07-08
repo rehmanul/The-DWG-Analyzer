@@ -502,9 +502,9 @@ st.markdown("### 🌟 *Professional Architecture Solution with Genius-Level Inte
 with st.container():
     st.markdown("## 📁 Upload Your Architectural Plan")
     uploaded_file = st.file_uploader(
-        "🎯 Select DXF Floor Plan", 
-        type=['dxf'],
-        help="Upload your DXF file with walls, restricted areas, and entrances"
+        "📁 Upload Floor Plan (DXF, DWG, PDF, Images)", 
+        type=['dxf', 'dwg', 'pdf', 'png', 'jpg', 'jpeg'],
+        help="Drag and drop your floor plan file here - supports multiple formats"
     )
 
 if uploaded_file:

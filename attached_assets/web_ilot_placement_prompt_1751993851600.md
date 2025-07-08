@@ -1,0 +1,792 @@
+# Web Application Requirements: Îlot Placement System
+
+## Core Application Overview
+Create a web-based application using Python/Streamlit that automatically places îlots (retail stands/booths) in floor plans with spatial constraints and corridor generation, featuring both 2D and 3D visualization.
+
+## Technical Architecture
+
+### Framework & Technologies
+- **Backend**: Python with Streamlit for web interface
+- **3D Graphics**: Three.js integration via Streamlit components
+- **2D Visualization**: Plotly/Matplotlib with interactive canvas
+- **File Processing**: ezdxf for DXF parsing, Pillow for image handling
+- **Deployment**: Streamlit Cloud, Docker containers, or cloud platforms
+
+### Core Components
+
+#### 1. File Upload & Processing Module
+```python
+Requirements:
+- Multi-format file uploader (DXF, DWG, PDF, images)
+- Drag-and-drop interface with progress indicators
+- Automatic zone classification using computer vision:
+  * Black lines → Walls (OpenCV contour detection)
+  * Light blue areas → Restricted zones (color segmentation)
+  * Red areas → Entrances/exits (HSV color filtering)
+- Real-time processing feedback with status updates
+- Error handling with user-friendly messages
+- File validation and format conversion
+```
+
+#### 2. Interactive Zone Detection
+```python
+Functions needed:
+- Polygon extraction with Shapely geometric operations
+- Area calculation for each classified zone
+- Boundary detection using edge detection algorithms
+- Overlap detection with spatial indexing
+- Available space calculation with buffer zones
+- Manual zone correction interface
+- Confidence scoring for automatic classifications
+```
+
+#### 3. Advanced Placement Engine
+```python
+Core Algorithm:
+- Configurable density input (10%, 25%, 30%, 35%, custom)
+- Multi-algorithm support:
+  * Grid-based placement with offset patterns
+  * Genetic algorithm optimization
+  * Simulated annealing for fine-tuning
+  * Machine learning-based pattern recognition
+- Real-time constraint validation:
+  * Entrance clearance (2-3m minimum)
+  * Restricted zone avoidance
+  * Fire safety compliance
+  * Accessibility requirements
+- Performance optimization with NumPy vectorization
+```
+
+#### 4. Intelligent Corridor Generation
+```python
+Requirements:
+- Automatic corridor detection between îlot rows
+- A* pathfinding algorithm for optimal routing
+- Configurable corridor width (1.5-3m range)
+- Junction handling for complex intersections
+- Curved corridor support with Bezier curves
+- Emergency exit path validation
+- Traffic flow simulation and optimization
+- Minimum width enforcement per building codes
+- Real-time collision detection and avoidance
+```
+
+#### 5. Web Interface Design
+
+##### Main Layout (Streamlit):
+```python
+# Sidebar Configuration Panel
+with st.sidebar:
+    st.header("🏢 Project Configuration")
+    
+    # Project Settings
+    project_name = st.text_input("Project Name", "FloorPlan_001")
+    building_code = st.selectbox("Building Code", 
+                                ["International", "IBC", "NFPA", "Local"])
+    units = st.radio("Units", ["Metric", "Imperial"])
+    
+    st.divider()
+    
+    # Îlot Configuration
+    st.subheader("🏪 Îlot Settings")
+    density = st.select_slider("Layout Density", 
+                              options=[10, 25, 30, 35], 
+                              value=25, format_func=lambda x: f"{x}%")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        ilot_width = st.number_input("Width (m)", 1.0, 5.0, 2.5, 0.1)
+    with col2:
+        ilot_height = st.number_input("Height (m)", 1.0, 5.0, 2.5, 0.1)
+    
+    spacing = st.slider("Minimum Spacing (m)", 0.3, 2.0, 0.5)
+    shape = st.selectbox("Shape", ["Rectangle", "Square", "L-Shape", "Custom"])
+    
+    st.divider()
+    
+    # Corridor Configuration
+    st.subheader("🛤️ Corridor Settings")
+    corridor_width = st.slider("Corridor Width (m)", 1.5, 3.0, 1.8, 0.1)
+    corridor_type = st.selectbox("Type", ["Straight", "Curved", "Organic"])
+    junction_style = st.selectbox("Junction Style", 
+                                 ["90° Corners", "Rounded", "Beveled"])
+    
+    st.divider()
+    
+    # Processing Controls
+    st.subheader("⚙️ Processing")
+    algorithm = st.selectbox("Algorithm", 
+                            ["Optimized", "Grid", "Genetic", "ML-Based"])
+    
+    if st.button("🚀 Generate Layout", type="primary"):
+        st.session_state.generate_layout = True
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔄 Optimize"):
+            st.session_state.optimize_layout = True
+    with col2:
+        if st.button("🗑️ Clear All"):
+            st.session_state.clear_layout = True
+
+# Main Content Area
+col1, col2 = st.columns([3, 1])
+
+with col1:
+    st.header("📐 Floor Plan Visualization")
+    
+    # Tab system for 2D/3D views
+    tab1, tab2, tab3 = st.tabs(["2D View", "3D View", "Analytics"])
+    
+    with tab1:
+        # 2D Interactive Canvas
+        st.subheader("Interactive 2D Floor Plan")
+        
+        # Visualization controls
+        view_col1, view_col2, view_col3 = st.columns(3)
+        with view_col1:
+            show_grid = st.checkbox("Show Grid", True)
+            show_dimensions = st.checkbox("Show Dimensions", True)
+        with view_col2:
+            show_constraints = st.checkbox("Show Constraints", True)
+            show_corridors = st.checkbox("Show Corridors", True)
+        with view_col3:
+            zoom_level = st.slider("Zoom", 50, 200, 100, 10)
+        
+        # 2D Plotly visualization
+        # Interactive canvas with zoom, pan, select functionality
+        
+    with tab2:
+        st.subheader("3D Visualization")
+        
+        # 3D controls
+        view_3d_col1, view_3d_col2 = st.columns(2)
+        with view_3d_col1:
+            camera_angle = st.selectbox("Camera Angle", 
+                                      ["Top", "Isometric", "Side", "Custom"])
+            lighting = st.selectbox("Lighting", 
+                                   ["Natural", "Bright", "Dramatic", "Soft"])
+        with view_3d_col2:
+            show_shadows = st.checkbox("Show Shadows", True)
+            show_textures = st.checkbox("Show Textures", False)
+        
+        # Three.js integration for 3D visualization
+        # Interactive 3D scene with camera controls
+        
+    with tab3:
+        st.subheader("Layout Analytics")
+        
+        # Real-time statistics and metrics
+        metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
+        with metrics_col1:
+            st.metric("Total Îlots", "45", "↑ 5")
+            st.metric("Coverage Area", "328.5 m²", "↑ 12.3%")
+        with metrics_col2:
+            st.metric("Density", "23.4%", "↑ 2.1%")
+            st.metric("Efficiency", "87.2%", "↑ 1.8%")
+        with metrics_col3:
+            st.metric("Compliance", "95%", "↑ 5%")
+            st.metric("Revenue Est.", "$12,450", "↑ 8.2%")
+
+with col2:
+    st.subheader("🎛️ Layer Controls")
+    
+    # Layer visibility controls
+    layers = {
+        "Walls (Black)": {"visible": True, "opacity": 1.0, "color": "#000000"},
+        "Restricted Areas (Blue)": {"visible": True, "opacity": 0.8, "color": "#0066CC"},
+        "Entrances/Exits (Red)": {"visible": True, "opacity": 0.9, "color": "#CC0000"},
+        "Placed Îlots (Green)": {"visible": True, "opacity": 1.0, "color": "#00CC00"},
+        "Corridors (Yellow)": {"visible": True, "opacity": 0.7, "color": "#CCCC00"},
+        "Dimensions": {"visible": True, "opacity": 1.0, "color": "#666666"}
+    }
+    
+    for layer_name, settings in layers.items():
+        with st.expander(layer_name, expanded=False):
+            settings["visible"] = st.checkbox("Visible", settings["visible"])
+            settings["opacity"] = st.slider("Opacity", 0.1, 1.0, 
+                                           settings["opacity"], 0.1)
+            settings["color"] = st.color_picker("Color", settings["color"])
+    
+    st.divider()
+    
+    # Selected object properties
+    st.subheader("📋 Object Properties")
+    if st.session_state.get("selected_object"):
+        selected = st.session_state.selected_object
+        st.write(f"**Type:** {selected.get('type', 'Unknown')}")
+        st.write(f"**ID:** {selected.get('id', 'N/A')}")
+        st.write(f"**Position:** ({selected.get('x', 0):.1f}, {selected.get('y', 0):.1f})")
+        st.write(f"**Dimensions:** {selected.get('width', 0):.1f} × {selected.get('height', 0):.1f} m")
+        st.write(f"**Area:** {selected.get('area', 0):.2f} m²")
+        
+        if st.button("Edit Properties"):
+            st.session_state.edit_mode = True
+        if st.button("Delete Object"):
+            st.session_state.delete_object = True
+    else:
+        st.info("Select an object to view properties")
+
+# File Upload Section
+st.header("📁 File Upload")
+uploaded_file = st.file_uploader(
+    "Upload floor plan (DXF, DWG, PDF, PNG, JPG)",
+    type=['dxf', 'dwg', 'pdf', 'png', 'jpg', 'jpeg'],
+    help="Drag and drop your floor plan file here"
+)
+
+if uploaded_file:
+    file_details = {
+        "filename": uploaded_file.name,
+        "filetype": uploaded_file.type,
+        "filesize": uploaded_file.size
+    }
+    st.success(f"File uploaded: {file_details['filename']}")
+    
+    # Process file and display preview
+    with st.spinner("Processing file..."):
+        # File processing logic here
+        pass
+```
+
+#### 6. Visualization Components
+
+##### 2D Interactive Canvas:
+```python
+# Using Plotly for interactive 2D visualization
+import plotly.graph_objects as go
+import plotly.express as px
+
+def create_2d_visualization(floor_plan_data, ilots, corridors):
+    fig = go.Figure()
+    
+    # Add floor plan layers
+    fig.add_trace(go.Scatter(
+        x=floor_plan_data['walls']['x'],
+        y=floor_plan_data['walls']['y'],
+        mode='lines',
+        line=dict(color='black', width=2),
+        name='Walls'
+    ))
+    
+    # Add restricted areas
+    fig.add_trace(go.Scatter(
+        x=floor_plan_data['restricted']['x'],
+        y=floor_plan_data['restricted']['y'],
+        fill='tonext',
+        fillcolor='rgba(0,100,200,0.3)',
+        line=dict(color='lightblue'),
+        name='Restricted Areas'
+    ))
+    
+    # Add îlots as rectangles
+    for ilot in ilots:
+        fig.add_shape(
+            type="rect",
+            x0=ilot['x'], y0=ilot['y'],
+            x1=ilot['x'] + ilot['width'], y1=ilot['y'] + ilot['height'],
+            fillcolor="rgba(0,200,0,0.5)",
+            line=dict(color="green", width=2),
+        )
+    
+    # Add corridors
+    for corridor in corridors:
+        fig.add_trace(go.Scatter(
+            x=corridor['x'],
+            y=corridor['y'],
+            mode='lines',
+            line=dict(color='yellow', width=8),
+            name='Corridors'
+        ))
+    
+    # Configure layout
+    fig.update_layout(
+        title="Interactive Floor Plan",
+        xaxis_title="X (meters)",
+        yaxis_title="Y (meters)",
+        showlegend=True,
+        hovermode='closest',
+        dragmode='pan'
+    )
+    
+    return fig
+
+# Display with Streamlit
+st.plotly_chart(fig, use_container_width=True)
+```
+
+##### 3D Visualization Component:
+```python
+# Three.js integration via Streamlit components
+import streamlit.components.v1 as components
+
+def create_3d_visualization(floor_plan_data, ilots, corridors):
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.js"></script>
+        <style>
+            body {{ margin: 0; overflow: hidden; }}
+            canvas {{ display: block; }}
+        </style>
+    </head>
+    <body>
+        <div id="container"></div>
+        <script>
+            // Three.js 3D scene setup
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({{ antialias: true }});
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(50, 100, 50);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            
+            // Add floor plane
+            const floorGeometry = new THREE.PlaneGeometry(100, 100);
+            const floorMaterial = new THREE.MeshLambertMaterial({{ color: 0xffffff }});
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            
+            // Add walls (from floor plan data)
+            const wallData = {floor_plan_data['walls']};
+            wallData.forEach(wall => {{
+                const wallGeometry = new THREE.BoxGeometry(wall.width, 3, wall.depth);
+                const wallMaterial = new THREE.MeshLambertMaterial({{ color: 0x666666 }});
+                const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
+                wallMesh.position.set(wall.x, 1.5, wall.y);
+                wallMesh.castShadow = true;
+                scene.add(wallMesh);
+            }});
+            
+            // Add îlots as 3D boxes
+            const ilotData = {ilots};
+            ilotData.forEach((ilot, index) => {{
+                const ilotGeometry = new THREE.BoxGeometry(ilot.width, 1, ilot.height);
+                const ilotMaterial = new THREE.MeshLambertMaterial({{ color: 0x00aa00 }});
+                const ilotMesh = new THREE.Mesh(ilotGeometry, ilotMaterial);
+                ilotMesh.position.set(ilot.x + ilot.width/2, 0.5, ilot.y + ilot.height/2);
+                ilotMesh.castShadow = true;
+                ilotMesh.receiveShadow = true;
+                scene.add(ilotMesh);
+                
+                // Add îlot label
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                context.font = '20px Arial';
+                context.fillStyle = 'white';
+                context.fillText(`Îlot ${{index + 1}}`, 10, 30);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const spriteMaterial = new THREE.SpriteMaterial({{ map: texture }});
+                const sprite = new THREE.Sprite(spriteMaterial);
+                sprite.position.set(ilot.x + ilot.width/2, 2, ilot.y + ilot.height/2);
+                sprite.scale.set(4, 2, 1);
+                scene.add(sprite);
+            }});
+            
+            // Add corridors as extruded paths
+            const corridorData = {corridors};
+            corridorData.forEach(corridor => {{
+                const points = corridor.points.map(p => new THREE.Vector2(p.x, p.y));
+                const shape = new THREE.Shape(points);
+                const extrudeSettings = {{
+                    depth: 0.1,
+                    bevelEnabled: false
+                }};
+                const corridorGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                const corridorMaterial = new THREE.MeshLambertMaterial({{ color: 0xffff00, transparent: true, opacity: 0.7 }});
+                const corridorMesh = new THREE.Mesh(corridorGeometry, corridorMaterial);
+                corridorMesh.rotation.x = -Math.PI / 2;
+                corridorMesh.position.y = 0.05;
+                scene.add(corridorMesh);
+            }});
+            
+            // Add camera controls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.enableZoom = true;
+            
+            // Position camera
+            camera.position.set(30, 40, 30);
+            camera.lookAt(0, 0, 0);
+            
+            // Animation loop
+            function animate() {{
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }}
+            animate();
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {{
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }});
+        </script>
+    </body>
+    </html>
+    """
+    
+    components.html(html_content, height=600)
+```
+
+#### 7. Export & Analytics Module
+
+```python
+# Export functionality
+def export_layout(format_type, floor_plan_data, ilots, corridors):
+    if format_type == "DXF":
+        # Export to DXF using ezdxf
+        doc = ezdxf.new(dxfversion='R2010')
+        msp = doc.modelspace()
+        
+        # Add walls layer
+        doc.layers.new(name='WALLS', dxfattribs={'color': 7})
+        for wall in floor_plan_data['walls']:
+            msp.add_line(wall['start'], wall['end'], dxfattribs={'layer': 'WALLS'})
+        
+        # Add îlots layer
+        doc.layers.new(name='ILOTS', dxfattribs={'color': 3})
+        for ilot in ilots:
+            msp.add_lwpolyline([
+                (ilot['x'], ilot['y']),
+                (ilot['x'] + ilot['width'], ilot['y']),
+                (ilot['x'] + ilot['width'], ilot['y'] + ilot['height']),
+                (ilot['x'], ilot['y'] + ilot['height'])
+            ], close=True, dxfattribs={'layer': 'ILOTS'})
+        
+        return doc.saveas()
+    
+    elif format_type == "PDF":
+        # Generate PDF report
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import letter
+        
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=letter)
+        
+        # Add title
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(100, 750, "Îlot Placement Report")
+        
+        # Add statistics
+        c.setFont("Helvetica", 12)
+        c.drawString(100, 700, f"Total Îlots: {len(ilots)}")
+        c.drawString(100, 680, f"Total Area: {sum(i['area'] for i in ilots):.2f} m²")
+        
+        # Add layout image
+        # Convert plotly figure to image and embed
+        
+        c.save()
+        return buffer.getvalue()
+    
+    elif format_type == "CSV":
+        # Export îlot data to CSV
+        import pandas as pd
+        
+        df = pd.DataFrame(ilots)
+        return df.to_csv(index=False)
+
+# Analytics dashboard
+def create_analytics_dashboard(ilots, corridors, floor_plan_data):
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.subheader("📊 Space Utilization")
+        
+        total_area = floor_plan_data['total_area']
+        ilot_area = sum(ilot['area'] for ilot in ilots)
+        corridor_area = sum(corridor['area'] for corridor in corridors)
+        
+        utilization_data = {
+            'Category': ['Îlots', 'Corridors', 'Free Space'],
+            'Area': [ilot_area, corridor_area, total_area - ilot_area - corridor_area],
+            'Percentage': [
+                ilot_area/total_area*100,
+                corridor_area/total_area*100,
+                (total_area - ilot_area - corridor_area)/total_area*100
+            ]
+        }
+        
+        fig = px.pie(utilization_data, values='Area', names='Category',
+                     title='Space Utilization Breakdown')
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.subheader("📈 Efficiency Metrics")
+        
+        efficiency_score = calculate_efficiency_score(ilots, corridors)
+        accessibility_score = calculate_accessibility_score(ilots, corridors)
+        safety_score = calculate_safety_score(ilots, corridors)
+        
+        # Radar chart for scores
+        scores = pd.DataFrame({
+            'Metric': ['Efficiency', 'Accessibility', 'Safety', 'Revenue', 'Compliance'],
+            'Score': [efficiency_score, accessibility_score, safety_score, 85, 92]
+        })
+        
+        fig = px.line_polar(scores, r='Score', theta='Metric',
+                           line_close=True, title='Performance Metrics')
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col3:
+        st.subheader("🚶 Traffic Flow Analysis")
+        
+        # Heat map of predicted traffic density
+        traffic_data = simulate_traffic_flow(ilots, corridors)
+        
+        fig = px.imshow(traffic_data, 
+                       title='Predicted Traffic Density',
+                       color_continuous_scale='YlOrRd')
+        st.plotly_chart(fig, use_container_width=True)
+```
+
+## Advanced Features
+
+### AI-Powered Optimization
+```python
+# Machine learning integration
+import tensorflow as tf
+from sklearn.cluster import KMeans
+
+class LayoutOptimizer:
+    def __init__(self):
+        self.model = self.load_pretrained_model()
+    
+    def optimize_placement(self, floor_plan, constraints):
+        # Use neural network to predict optimal placements
+        features = self.extract_features(floor_plan)
+        predictions = self.model.predict(features)
+        return self.decode_predictions(predictions)
+    
+    def learn_from_feedback(self, layout, user_rating):
+        # Reinforcement learning from user feedback
+        self.model.fit(layout, user_rating)
+
+# Real-time collaboration
+class CollaborationManager:
+    def __init__(self):
+        self.active_sessions = {}
+        self.websocket_handler = WebSocketHandler()
+    
+    def broadcast_changes(self, session_id, changes):
+        # Real-time updates to all connected users
+        for user in self.active_sessions[session_id]:
+            self.websocket_handler.send(user, changes)
+
+# Advanced constraint validation
+class ConstraintValidator:
+    def __init__(self):
+        self.building_codes = self.load_building_codes()
+    
+    def validate_layout(self, layout):
+        violations = []
+        
+        # Fire safety validation
+        if not self.check_fire_exits(layout):
+            violations.append("Insufficient fire exit access")
+        
+        # Accessibility validation
+        if not self.check_accessibility(layout):
+            violations.append("ADA compliance issues")
+        
+        # Load capacity validation
+        if not self.check_load_capacity(layout):
+            violations.append("Exceeds maximum occupancy")
+        
+        return violations
+```
+
+### Performance Optimization
+```python
+# Caching and performance
+import functools
+import redis
+
+@functools.lru_cache(maxsize=128)
+def calculate_layout_score(layout_hash):
+    # Expensive calculation with caching
+    return compute_score(layout_hash)
+
+# Parallel processing
+import multiprocessing as mp
+
+def parallel_placement_optimization(floor_plan, num_processes=4):
+    with mp.Pool(processes=num_processes) as pool:
+        results = pool.map(optimize_section, floor_plan.sections)
+    return merge_results(results)
+
+# Progress tracking
+import asyncio
+
+async def process_large_file(file_path, progress_callback):
+    total_steps = 10
+    for i in range(total_steps):
+        await asyncio.sleep(0.1)  # Simulate processing
+        progress_callback(i / total_steps)
+```
+
+## Deployment & Distribution
+
+### Streamlit Cloud Deployment
+```python
+# requirements.txt
+streamlit>=1.28.0
+plotly>=5.15.0
+pandas>=2.0.0
+numpy>=1.24.0
+ezdxf>=1.0.0
+Pillow>=9.5.0
+shapely>=2.0.0
+opencv-python>=4.8.0
+scikit-learn>=1.3.0
+tensorflow>=2.13.0
+redis>=4.6.0
+
+# .streamlit/config.toml
+[server]
+maxUploadSize = 200
+maxMessageSize = 200
+
+[theme]
+primaryColor = "#FF6B6B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+```
+
+### Docker Containerization
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8501
+
+HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
+
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+```
+
+### Cloud Platform Integration
+```python
+# AWS S3 integration for file storage
+import boto3
+
+class CloudStorageManager:
+    def __init__(self):
+        self.s3_client = boto3.client('s3')
+    
+    def upload_file(self, file_content, bucket, key):
+        self.s3_client.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=file_content
+        )
+    
+    def download_file(self, bucket, key):
+        response = self.s3_client.get_object(Bucket=bucket, Key=key)
+        return response['Body'].read()
+
+# Database integration
+import sqlalchemy as sa
+
+class ProjectManager:
+    def __init__(self, db_url):
+        self.engine = sa.create_engine(db_url)
+    
+    def save_project(self, project_data):
+        with self.engine.connect() as conn:
+            conn.execute(
+                sa.text("INSERT INTO projects (name, data) VALUES (:name, :data)"),
+                {"name": project_data['name'], "data": json.dumps(project_data)}
+            )
+    
+    def load_project(self, project_id):
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                sa.text("SELECT data FROM projects WHERE id = :id"),
+                {"id": project_id}
+            )
+            return json.loads(result.fetchone()[0])
+```
+
+## Security & Compliance
+
+### Data Protection
+```python
+# Encryption for sensitive data
+from cryptography.fernet import Fernet
+
+class DataEncryption:
+    def __init__(self, key):
+        self.cipher = Fernet(key)
+    
+    def encrypt_data(self, data):
+        return self.cipher.encrypt(data.encode())
+    
+    def decrypt_data(self, encrypted_data):
+        return self.cipher.decrypt(encrypted_data).decode()
+
+# User authentication
+import streamlit_authenticator as stauth
+
+def setup_authentication():
+    names = ['John Smith', 'Rebecca Briggs']
+    usernames = ['jsmith', 'rbriggs']
+    passwords = ['123', '456']
+    
+    hashed_passwords = stauth.Hasher(passwords).generate()
+    
+    authenticator = stauth.Authenticate(names, usernames, hashed_passwords,
+                                       'some_cookie_name', 'some_signature_key',
+                                       cookie_expiry_days=30)
+    
+    return authenticator
+```
+
+## Testing & Quality Assurance
+
+### Unit Testing
+```python
+import unittest
+import pytest
+
+class TestLayoutPlacement(unittest.TestCase):
+    def setUp(self):
+        self.floor_plan = load_test_floor_plan()
+        self.placement_engine = PlacementEngine()
+    
+    def test_ilot_placement(self):
+        result = self.placement_engine.place_ilots(self.floor_plan, density=0.25)
+        self.assertGreater(len(result), 0)
+        self.assertTrue(all(self.is_valid_placement(ilot) for ilot in result))
+    
+    def test_corridor_generation(self):
+        ilots = self.placement_engine.place_ilots(self.floor_plan, density=0.25)
+        corridors = self.placement_engine.generate_corridors(ilots)
+        self.assertTrue(self.corridors_connect_all_ilots(corridors, ilots))
+
+#
