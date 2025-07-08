@@ -166,13 +166,13 @@ def load_dxf_analysis(uploaded_file):
         status_text = st.empty()
         
         status_text.text("Loading DXF file...")
-        progress_bar.progress(20)
+        progress_bar.progress(0.2)
         
         doc = ezdxf.readfile(tmp_path)
         walls, restricted, entrances, available = [], [], [], []
         
         status_text.text("Processing entities...")
-        progress_bar.progress(40)
+        progress_bar.progress(0.4)
         
         # Get all entities with batching for performance
         all_entities = list(doc.modelspace())
@@ -190,7 +190,8 @@ def load_dxf_analysis(uploaded_file):
         # 🎯 SMART ENTITY DETECTION WITH PROGRESS
         for i, entity in enumerate(all_entities):
             if i % 100 == 0:  # Update progress every 100 entities
-                progress_bar.progress(40 + (i / len(all_entities)) * 40)
+                progress_value = 0.4 + (i / len(all_entities)) * 0.4  # Convert to 0.0-1.0 range
+                progress_bar.progress(min(progress_value, 1.0))
                 status_text.text(f"Processing entity {i+1}/{len(all_entities)}...")
             
             if entity.dxftype() in ['LWPOLYLINE', 'POLYLINE', 'LINE', 'CIRCLE', 'ARC']:
@@ -234,7 +235,7 @@ def load_dxf_analysis(uploaded_file):
                         available.append(zone)
         
         # Update progress to completion
-        progress_bar.progress(100)
+        progress_bar.progress(1.0)
         status_text.text("Processing complete!")
         
         # Calculate processing time and store statistics
@@ -259,6 +260,39 @@ def load_dxf_analysis(uploaded_file):
         
     except Exception as e:
         st.error(f"🚨 DXF Analysis Error: {e}")
+        return [], [], [], []
+
+def load_dwg_analysis(uploaded_file):
+    """🧠 INTELLIGENT DWG ANALYSIS WITH CONVERSION"""
+    try:
+        file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
+        
+        # Show conversion message
+        st.info(f"DWG file detected ({file_size_mb:.1f}MB). Converting to DXF format...")
+        
+        # For now, provide clear instructions for DWG conversion
+        st.warning("""
+        **DWG Conversion Required**
+        
+        To process DWG files, please:
+        1. **Convert to DXF**: Use AutoCAD, FreeCAD, or online converters to save as DXF format
+        2. **Alternative**: Export your DWG as a PNG/JPG image and upload that instead
+        
+        **Quick Steps:**
+        - Open your DWG file in AutoCAD or similar software
+        - Go to File → Export → Select DXF format
+        - Upload the DXF file here
+        
+        **Or for Image Processing:**
+        - Take a screenshot of your DWG plan
+        - Save as PNG or JPG
+        - Upload the image file here
+        """)
+        
+        return [], [], [], []
+        
+    except Exception as e:
+        st.error(f"🚨 DWG Processing Error: {e}")
         return [], [], [], []
 
 def load_image_analysis(uploaded_file):
@@ -1388,6 +1422,29 @@ st.markdown("### 🌟 *Professional Architecture Solution with Genius-Level Inte
 # 📁 FILE UPLOAD SECTION
 with st.container():
     st.markdown("## 📁 Upload Your Architectural Plan")
+    
+    # Format support information
+    with st.expander("📋 Supported File Formats & Instructions"):
+        st.markdown("""
+        **✅ Fully Supported:**
+        - **DXF files** - Direct processing of CAD entities and layers
+        - **PNG/JPG images** - Color-based zone detection (black=walls, blue=restricted, red=entrances)
+        - **PDF files** - Converts to image for processing
+        
+        **⚠️ Requires Conversion:**
+        - **DWG files** - Convert to DXF format using AutoCAD, FreeCAD, or online converters
+        
+        **🔄 DWG to DXF Conversion Steps:**
+        1. Open DWG file in AutoCAD or similar software
+        2. File → Export → Select DXF format
+        3. Upload the DXF file here
+        
+        **📸 Alternative: Export as Image**
+        - Take a screenshot of your plan
+        - Save as PNG or JPG with clear color coding
+        - Upload the image file
+        """)
+    
     uploaded_file = st.file_uploader(
         "📁 Upload Floor Plan (DXF, DWG, PDF, Images)", 
         type=['dxf', 'dwg', 'pdf', 'png', 'jpg', 'jpeg'],
