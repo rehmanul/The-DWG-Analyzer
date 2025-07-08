@@ -1,3 +1,4 @@
+# Cloud deployment version without OpenCV
 import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
@@ -11,8 +12,15 @@ import math
 import pandas as pd
 import io
 from PIL import Image
-import cv2
 import streamlit.components.v1 as components
+
+# Try to import OpenCV, fall back to PIL-only processing if not available
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
+    st.warning("OpenCV not available in cloud environment. Using simplified image processing.")
 
 # 🎨 AMAZING VIBE CONFIGURATION
 st.set_page_config(
@@ -138,91 +146,170 @@ def load_dxf_analysis(uploaded_file):
         return [], [], [], []
 
 def load_image_analysis(uploaded_file):
-    """🧠 INTELLIGENT IMAGE ANALYSIS WITH ADVANCED COMPUTER VISION"""
+    """🧠 INTELLIGENT IMAGE ANALYSIS WITH FALLBACK FOR CLOUD"""
     try:
         # Load image
         image = Image.open(uploaded_file)
-        opencv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         
-        # Get image dimensions for scaling
-        height, width = opencv_image.shape[:2]
-        scale_factor = 0.1  # Convert pixels to meters (adjustable)
-        
-        walls, restricted, entrances, available = [], [], [], []
-        
-        # Convert to HSV for better color detection
-        hsv = cv2.cvtColor(opencv_image, cv2.COLOR_BGR2HSV)
-        
-        # Enhanced black detection for walls
-        lower_black = np.array([0, 0, 0])
-        upper_black = np.array([180, 255, 50])
-        black_mask = cv2.inRange(hsv, lower_black, upper_black)
-        
-        # Enhanced blue detection for restricted areas
-        lower_blue = np.array([100, 50, 50])
-        upper_blue = np.array([130, 255, 255])
-        blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
-        
-        # Enhanced red detection for entrances
-        lower_red1 = np.array([0, 50, 50])
-        upper_red1 = np.array([10, 255, 255])
-        lower_red2 = np.array([170, 50, 50])
-        upper_red2 = np.array([180, 255, 255])
-        red_mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-        red_mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-        red_mask = cv2.bitwise_or(red_mask1, red_mask2)
-        
-        # Process walls (black lines)
-        wall_contours, _ = cv2.findContours(black_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for contour in wall_contours:
-            if cv2.contourArea(contour) > 100:  # Filter small noise
-                # Convert contour to points
-                epsilon = 0.02 * cv2.arcLength(contour, True)
-                approx = cv2.approxPolyDP(contour, epsilon, True)
-                points = [(int(p[0][0] * scale_factor), int(p[0][1] * scale_factor)) for p in approx]
-                if len(points) >= 2:
-                    walls.append({'points': points, 'type': 'wall'})
-        
-        # Process restricted areas (blue zones)
-        blue_contours, _ = cv2.findContours(blue_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for contour in blue_contours:
-            if cv2.contourArea(contour) > 500:  # Filter small noise
-                epsilon = 0.02 * cv2.arcLength(contour, True)
-                approx = cv2.approxPolyDP(contour, epsilon, True)
-                points = [(int(p[0][0] * scale_factor), int(p[0][1] * scale_factor)) for p in approx]
-                if len(points) >= 3:
-                    restricted.append({'points': points, 'type': 'restricted'})
-        
-        # Process entrances (red lines/areas)
-        red_contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for contour in red_contours:
-            if cv2.contourArea(contour) > 50:  # Filter small noise
-                epsilon = 0.02 * cv2.arcLength(contour, True)
-                approx = cv2.approxPolyDP(contour, epsilon, True)
-                points = [(int(p[0][0] * scale_factor), int(p[0][1] * scale_factor)) for p in approx]
-                if len(points) >= 2:
-                    entrances.append({'points': points, 'type': 'entrance'})
-        
-        # Create available zones (everything else)
-        # This is a simplified approach - in reality, you'd need more sophisticated region detection
-        if not walls and not restricted and not entrances:
-            # Create a default available zone covering the whole image
-            available.append({
-                'points': [
-                    (0, 0),
-                    (int(width * scale_factor), 0),
-                    (int(width * scale_factor), int(height * scale_factor)),
-                    (0, int(height * scale_factor))
-                ],
-                'type': 'available'
-            })
-        
-        st.success(f"Image processed: {len(walls)} walls, {len(restricted)} restricted zones, {len(entrances)} entrances detected")
-        return walls, restricted, entrances, available
+        if OPENCV_AVAILABLE:
+            # Use OpenCV if available
+            opencv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+            return load_image_analysis_opencv(image, opencv_image)
+        else:
+            # Use PIL-only fallback
+            return load_image_analysis_pil_only(image)
         
     except Exception as e:
         st.error(f"Image processing error: {e}")
         return [], [], [], []
+
+def load_image_analysis_opencv(image, opencv_image):
+    """OpenCV-based image analysis"""
+    # Get image dimensions for scaling
+    height, width = opencv_image.shape[:2]
+    scale_factor = 0.1  # Convert pixels to meters (adjustable)
+    
+    walls, restricted, entrances, available = [], [], [], []
+    
+    # Convert to HSV for better color detection
+    hsv = cv2.cvtColor(opencv_image, cv2.COLOR_BGR2HSV)
+    
+    # Enhanced black detection for walls
+    lower_black = np.array([0, 0, 0])
+    upper_black = np.array([180, 255, 50])
+    black_mask = cv2.inRange(hsv, lower_black, upper_black)
+    
+    # Enhanced blue detection for restricted areas
+    lower_blue = np.array([100, 50, 50])
+    upper_blue = np.array([130, 255, 255])
+    blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
+    
+    # Enhanced red detection for entrances
+    lower_red1 = np.array([0, 50, 50])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([170, 50, 50])
+    upper_red2 = np.array([180, 255, 255])
+    red_mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    red_mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    red_mask = cv2.bitwise_or(red_mask1, red_mask2)
+    
+    # Process walls (black lines)
+    wall_contours, _ = cv2.findContours(black_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in wall_contours:
+        if cv2.contourArea(contour) > 100:  # Filter small noise
+            # Convert contour to points
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+            points = [(int(p[0][0] * scale_factor), int(p[0][1] * scale_factor)) for p in approx]
+            if len(points) >= 2:
+                walls.append({'points': points, 'type': 'wall'})
+    
+    # Process restricted areas (blue zones)
+    blue_contours, _ = cv2.findContours(blue_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in blue_contours:
+        if cv2.contourArea(contour) > 500:  # Filter small noise
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+            points = [(int(p[0][0] * scale_factor), int(p[0][1] * scale_factor)) for p in approx]
+            if len(points) >= 3:
+                restricted.append({'points': points, 'type': 'restricted'})
+    
+    # Process entrances (red lines/areas)
+    red_contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in red_contours:
+        if cv2.contourArea(contour) > 50:  # Filter small noise
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+            points = [(int(p[0][0] * scale_factor), int(p[0][1] * scale_factor)) for p in approx]
+            if len(points) >= 2:
+                entrances.append({'points': points, 'type': 'entrance'})
+    
+    # Create available zones (everything else)
+    if not walls and not restricted and not entrances:
+        # Create a default available zone covering the whole image
+        available.append({
+            'points': [
+                (0, 0),
+                (int(width * scale_factor), 0),
+                (int(width * scale_factor), int(height * scale_factor)),
+                (0, int(height * scale_factor))
+            ],
+            'type': 'available'
+        })
+    
+    st.success(f"Image processed: {len(walls)} walls, {len(restricted)} restricted zones, {len(entrances)} entrances detected")
+    return walls, restricted, entrances, available
+
+def load_image_analysis_pil_only(image):
+    """PIL-only image analysis for cloud deployment"""
+    width, height = image.size
+    scale_factor = 0.1  # Convert pixels to meters
+    
+    # Convert to RGB if not already
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
+    
+    # Get image as numpy array
+    img_array = np.array(image)
+    
+    walls, restricted, entrances, available = [], [], [], []
+    
+    # Simple color detection using PIL and numpy
+    # Black detection for walls (low RGB values)
+    black_mask = np.all(img_array < 50, axis=2)
+    
+    # Blue detection for restricted areas
+    blue_mask = (img_array[:,:,2] > 100) & (img_array[:,:,0] < 100) & (img_array[:,:,1] < 100)
+    
+    # Red detection for entrances
+    red_mask = (img_array[:,:,0] > 100) & (img_array[:,:,1] < 100) & (img_array[:,:,2] < 100)
+    
+    # Find contours using basic image processing
+    def find_basic_contours(mask):
+        """Basic contour detection without OpenCV"""
+        contours = []
+        h, w = mask.shape
+        
+        # Simple edge detection
+        for y in range(1, h-1):
+            for x in range(1, w-1):
+                if mask[y, x] and not mask[y-1, x]:  # Top edge
+                    contours.append([(x * scale_factor, y * scale_factor)])
+        
+        return contours
+    
+    # Process walls
+    wall_contours = find_basic_contours(black_mask)
+    for contour in wall_contours:
+        if len(contour) >= 2:
+            walls.append({'points': contour, 'type': 'wall'})
+    
+    # Process restricted areas
+    restricted_contours = find_basic_contours(blue_mask)
+    for contour in restricted_contours:
+        if len(contour) >= 3:
+            restricted.append({'points': contour, 'type': 'restricted'})
+    
+    # Process entrances
+    entrance_contours = find_basic_contours(red_mask)
+    for contour in entrance_contours:
+        if len(contour) >= 2:
+            entrances.append({'points': contour, 'type': 'entrance'})
+    
+    # Create default available zone if nothing found
+    if not walls and not restricted and not entrances:
+        available.append({
+            'points': [
+                (0, 0),
+                (width * scale_factor, 0),
+                (width * scale_factor, height * scale_factor),
+                (0, height * scale_factor)
+            ],
+            'type': 'available'
+        })
+    
+    st.success(f"Image processed: {len(walls)} walls, {len(restricted)} restricted zones, {len(entrances)} entrances detected")
+    return walls, restricted, entrances, available
 
 def load_pdf_analysis(uploaded_file):
     """🧠 INTELLIGENT PDF ANALYSIS WITH PYMUPDF"""
