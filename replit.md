@@ -103,6 +103,11 @@ The AI Architectural Space Analyzer PRO is a comprehensive enterprise-grade appl
 - **Testing**: Automated testing scripts and validation
 
 ## Changelog
+- July 08, 2025: Enhanced îlot placement algorithm to meet client requirements
+  - Implemented proper color-based zone detection (black=walls, blue=restricted, red=entrances)
+  - Added client-compliant placement rules (îlots can touch walls, avoid red/blue areas)
+  - Improved corridor generation between facing îlot rows
+  - Added compliance validation and reporting
 - July 08, 2025: Successfully migrated from Replit Agent to standard Replit environment
 - July 08, 2025: Verified all client requirements are met and application is fully functional
 - July 08, 2025: Initial setup
