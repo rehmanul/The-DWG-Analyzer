@@ -18,3 +18,8 @@ scikit-learn
 scipy
 shapely
 streamlit
+opencv-python
+pdf2image
+pillow
+PyMuPDF
+reportlab
