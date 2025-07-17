@@ -134,29 +134,59 @@ def process_dxf_file(file_content: bytes, filename: str) -> FloorPlan:
         
         logger.info(f"Enhanced DXF parsing: {len(walls)} walls, {len(restricted)} restricted, {len(entrances)} entrances")
         
-        # Convert geometries to spaces for ilot placement
+        # Create valid spaces by finding the area NOT covered by walls and entrances
         processed_spaces = []
         
-        # Process walls as potential spaces
-        for i, wall in enumerate(walls):
-            if wall.area > 5:  # Only consider larger wall areas as spaces
-                try:
-                    # Handle MultiPolygon case
-                    if wall.geom_type == 'MultiPolygon':
-                        # Use the largest polygon from the multipolygon
-                        wall = max(wall.geoms, key=lambda p: p.area)
-                    
-                    points = list(wall.exterior.coords)
+        # Get overall bounds
+        all_bounds = []
+        for wall in walls:
+            all_bounds.extend(wall.bounds)
+        for entrance in entrances:
+            all_bounds.extend(entrance.bounds)
+        
+        if all_bounds:
+            min_x = min(all_bounds[::4])
+            min_y = min(all_bounds[1::4])
+            max_x = max(all_bounds[2::4])
+            max_y = max(all_bounds[3::4])
+            
+            # Create the overall floor plan area
+            from shapely.geometry import Polygon, box
+            from shapely.ops import unary_union
+            
+            # Create overall bounding box
+            overall_area = box(min_x, min_y, max_x, max_y)
+            
+            # Subtract walls and entrances to get open spaces
+            obstacles = walls + entrances + restricted
+            if obstacles:
+                obstacle_union = unary_union(obstacles)
+                # Get the remaining open space
+                open_space = overall_area.difference(obstacle_union)
+                
+                # Handle MultiPolygon case
+                if open_space.geom_type == 'MultiPolygon':
+                    for poly in open_space.geoms:
+                        if poly.area > 10:  # Only consider significant spaces
+                            processed_spaces.append({
+                                'points': list(poly.exterior.coords),
+                                'area': poly.area,
+                                'room_type': 'Open Space',
+                                'bounds': poly.bounds,
+                                'geometry': poly
+                            })
+                elif open_space.geom_type == 'Polygon' and open_space.area > 10:
                     processed_spaces.append({
-                        'points': points,
-                        'area': wall.area,
-                        'room_type': 'Space',
-                        'bounds': wall.bounds,
-                        'geometry': wall
+                        'points': list(open_space.exterior.coords),
+                        'area': open_space.area,
+                        'room_type': 'Open Space',
+                        'bounds': open_space.bounds,
+                        'geometry': open_space
                     })
-                except Exception as e:
-                    logger.warning(f"Error processing wall {i}: {e}")
-                    continue
+        
+        # If no valid spaces found, create a warning
+        if not processed_spaces:
+            logger.warning("No open spaces found after removing walls and entrances")
         
         # Process walls for visualization
         wall_data = []
@@ -406,8 +436,26 @@ def calculate_ilot_placement(floor_plan: FloorPlan, config: Dict) -> FloorPlan:
     y_coords = [p[1] for p in all_points]
     bounds = (min(x_coords), min(y_coords), max(x_coords), max(y_coords))
 
-    # Create forbidden areas union
+    # Create forbidden areas union (walls, entrances, and restricted areas)
     forbidden_polygons = []
+    
+    # Add walls as forbidden areas
+    for wall in floor_plan.walls:
+        try:
+            if 'geometry' in wall:
+                forbidden_polygons.append(Polygon(wall['geometry']))
+        except:
+            continue
+    
+    # Add entrances as forbidden areas
+    for entrance in floor_plan.entrances:
+        try:
+            if 'geometry' in entrance:
+                forbidden_polygons.append(Polygon(entrance['geometry']))
+        except:
+            continue
+    
+    # Add restricted areas as forbidden areas
     for restricted in floor_plan.restricted_areas:
         try:
             if 'geometry' in restricted:
@@ -467,7 +515,19 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
 
     # Draw walls
     for wall in floor_plan.walls:
-        if 'start_point' in wall and 'end_point' in wall:
+        if 'geometry' in wall:
+            points = wall['geometry']
+            if len(points) >= 3:
+                x_coords = [p[0] for p in points] + [points[0][0]]
+                y_coords = [p[1] for p in points] + [points[0][1]]
+                fig.add_trace(go.Scatter(
+                    x=x_coords, y=y_coords,
+                    fill='toself', fillcolor='rgba(44,62,80,0.8)',
+                    line=dict(color='#2C3E50', width=2),
+                    name='Walls',
+                    showlegend=False
+                ))
+        elif 'start_point' in wall and 'end_point' in wall:
             fig.add_trace(go.Scatter(
                 x=[wall['start_point'][0], wall['end_point'][0]],
                 y=[wall['start_point'][1], wall['end_point'][1]],
