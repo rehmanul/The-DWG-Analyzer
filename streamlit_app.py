@@ -837,7 +837,7 @@ def export_layout_csv(ilots, corridors):
     """Export layout data as CSV"""
     import pandas as pd
     from io import StringIO
-    
+
     # Create data for CSV
     data = []
     for i, ilot in enumerate(ilots):
@@ -851,7 +851,7 @@ def export_layout_csv(ilots, corridors):
             'Center_Y': ilot.get('position', (0, 0))[1],
             'Rotation': ilot.get('rotation', 0)
         })
-    
+
     df = pd.DataFrame(data)
     csv_buffer = StringIO()
     df.to_csv(csv_buffer, index=False)
@@ -863,10 +863,10 @@ def export_professional_pdf_report(ilots, corridors, walls, restricted, entrance
     import os
     import sys
     sys.path.append('src')
-    
+
     try:
         from pdf_report_generator import ProfessionalPDFReportGenerator
-        
+
         # Calculate analysis data
         analysis_data = {
             'project_name': 'Architectural Space Analysis',
@@ -880,40 +880,40 @@ def export_professional_pdf_report(ilots, corridors, walls, restricted, entrance
             'corridor_width': 1.2,
             'size_distribution': {}
         }
-        
+
         # Calculate size distribution
         for ilot in ilots:
             category = ilot.get('category', 'Unknown')
             if category not in analysis_data['size_distribution']:
                 analysis_data['size_distribution'][category] = 0
             analysis_data['size_distribution'][category] += 1
-        
+
         # Create temporary file for PDF
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
             tmp_path = tmp_file.name
-        
+
         # Generate PDF report
         pdf_generator = ProfessionalPDFReportGenerator()
-        
+
         # Convert plotly figure to image for PDF
         img_bytes = fig.to_image(format="png", width=800, height=600)
-        
+
         # Generate the report
         pdf_generator.generate_comprehensive_report(
             analysis_data,
             None,  # We'll handle the image separately
             tmp_path
         )
-        
+
         # Read the generated PDF
         with open(tmp_path, 'rb') as f:
             pdf_data = f.read()
-        
+
         # Clean up temporary file
         os.unlink(tmp_path)
-        
+
         return pdf_data
-        
+
     except Exception as e:
         # Fallback to simple PDF generation
         return f"PDF generation failed: {str(e)}".encode()
@@ -923,18 +923,18 @@ def export_dxf_layout(ilots, corridors, walls):
     try:
         import ezdxf
         from io import BytesIO
-        
+
         # Create new DXF document
         doc = ezdxf.new('R2010')
         msp = doc.modelspace()
-        
+
         # Add walls
         for wall in walls:
             points = wall.get('points', [])
             if len(points) >= 2:
                 for i in range(len(points) - 1):
                     msp.add_line(points[i], points[i + 1], dxfattribs={'color': 7})
-        
+
         # Add ilots
         for ilot in ilots:
             poly = ilot.get('polygon')
@@ -943,7 +943,7 @@ def export_dxf_layout(ilots, corridors, walls):
                 if len(coords) >= 4:
                     # Create polyline for îlot boundary
                     msp.add_lwpolyline(coords, close=True, dxfattribs={'color': 3})
-        
+
         # Add corridors
         for corridor in corridors:
             poly = corridor.get('polygon')
@@ -951,12 +951,12 @@ def export_dxf_layout(ilots, corridors, walls):
                 coords = list(poly.exterior.coords)
                 if len(coords) >= 4:
                     msp.add_lwpolyline(coords, close=True, dxfattribs={'color': 8})
-        
+
         # Save to bytes
         buffer = BytesIO()
         doc.write(buffer)
         return buffer.getvalue()
-        
+
     except Exception as e:
         return f"DXF export failed: {str(e)}".encode()
 
