@@ -1,15 +1,22 @@
+
 [server]
-maxUploadSize = 10000
-maxMessageSize = 10000
 headless = true
 port = 8501
 address = "0.0.0.0"
+maxUploadSize = 200
+maxMessageSize = 200
+enableCORS = false
+enableXsrfProtection = false
+enableWebsocketCompression = false
 
 [client]
 toolbarMode = "minimal"
+showErrorDetails = false
 
 [browser]
 gatherUsageStats = false
+serverAddress = "0.0.0.0"
+serverPort = 8501
 
 [theme]
 primaryColor = "#2E8B57"
@@ -18,3 +25,15 @@ secondaryBackgroundColor = "#F0F2F6"
 textColor = "#262730"
 font = "sans serif"
 base = "light"
+
+[runner]
+magicEnabled = false
+installTracer = false
+fixMatplotlib = true
+
+[logger]
+level = "info"
+enableRich = false
+
+[global]
+developmentMode = false
