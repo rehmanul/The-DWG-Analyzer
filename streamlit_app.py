@@ -509,11 +509,14 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 x=x_coords, y=y_coords,
                 fill='toself', fillcolor='rgba(255,255,255,0.9)',
                 line=dict(color='#CCCCCC', width=1),
-                name=f"Open Space {i+1}",
+                name="⬜ Open Spaces (Available for îlots)" if i == 0 else None,
+                legendgroup='spaces',
+                showlegend=i == 0,
                 hovertemplate=f"Area: {space.get('area', 0):.1f} m²<br>Available for îlots<extra></extra>"
             ))
 
     # Draw walls
+    wall_shown = False
     for wall in floor_plan.walls:
         if 'geometry' in wall:
             points = wall['geometry']
@@ -524,19 +527,23 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                     x=x_coords, y=y_coords,
                     fill='toself', fillcolor='rgba(84,84,84,0.9)',
                     line=dict(color='#2C3E50', width=2),
-                    name='MUR (Gray)',
-                    hovertemplate="Wall - No îlots allowed<extra></extra>",
-                    showlegend=False
+                    name='⬛ MUR (Walls)',
+                    legendgroup='walls',
+                    showlegend=not wall_shown,
+                    hovertemplate="Wall - No îlots allowed<extra></extra>"
                 ))
+                wall_shown = True
         elif 'start_point' in wall and 'end_point' in wall:
             fig.add_trace(go.Scatter(
                 x=[wall['start_point'][0], wall['end_point'][0]],
                 y=[wall['start_point'][1], wall['end_point'][1]],
                 mode='lines',
                 line=dict(color='#2C3E50', width=4),
-                name='Walls',
-                showlegend=False
+                name='⬛ MUR (Walls)',
+                legendgroup='walls',
+                showlegend=not wall_shown
             ))
+            wall_shown = True
 
     # Draw restricted areas (Blue zones - NO ENTREE)
     for i, restricted in enumerate(floor_plan.restricted_areas):
@@ -550,15 +557,17 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 y=y_coords,
                 mode='lines',
                 fill='toself',
-                fillcolor='rgba(70, 130, 255, 0.9)',  # Bright blue like reference
+                fillcolor='rgba(70, 130, 255, 0.8)',  # Bright blue
                 line=dict(color='#4682FF', width=3),
-                name='🔵 NO ENTREE' if i == 0 else None,
+                name='🔵 NO ENTREE (Restricted Areas)',
+                legendgroup='restricted',
                 showlegend=i == 0,
                 hoverinfo='text',
                 hovertext='🔵 NO ENTREE - Zone Restrictée'
             ))
 
     # Draw entrances (Red zones - ENTREE/SORTIE)
+    entrance_shown = False
     for i, entrance in enumerate(floor_plan.entrances):
         if 'location' in entrance:
             fig.add_trace(go.Scatter(
@@ -566,10 +575,12 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 y=[entrance['location'][1]],
                 mode='markers',
                 marker=dict(color='#FF4444', size=15, symbol='diamond'),
-                name='🔴 ENTRÉE/SORTIE' if i == 0 else None,
-                showlegend=i == 0,
+                name='🔴 ENTRÉE/SORTIE (Entrances)',
+                legendgroup='entrances',
+                showlegend=not entrance_shown,
                 hovertemplate="🔴 ENTRÉE/SORTIE - Entrance/Exit<extra></extra>"
             ))
+            entrance_shown = True
         elif 'geometry' in entrance:
             points = entrance['geometry']
             if len(points) >= 2:
@@ -579,16 +590,19 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                     x=x_coords, y=y_coords,
                     mode='lines',
                     fill='toself' if len(points) > 2 else None,
-                    fillcolor='rgba(255, 68, 68, 0.9)' if len(points) > 2 else None,  # Bright red like reference
+                    fillcolor='rgba(255, 68, 68, 0.8)' if len(points) > 2 else None,  # Bright red
                     line=dict(color='#FF4444', width=4),
-                    name='🔴 ENTRÉE/SORTIE' if i == 0 else None,
-                    showlegend=i == 0,
+                    name='🔴 ENTRÉE/SORTIE (Entrances)',
+                    legendgroup='entrances',
+                    showlegend=not entrance_shown,
                     hovertemplate="🔴 ENTRÉE/SORTIE - Entrance/Exit<extra></extra>"
                 ))
+                entrance_shown = True
 
     if view_type in ['ilots', 'corridors']:
         # Draw îlots
-        for ilot in floor_plan.ilots:
+        ilot_shown = False
+        for i, ilot in enumerate(floor_plan.ilots):
             polygon = ilot['polygon']
             x_coords = [p[0] for p in polygon.exterior.coords]
             y_coords = [p[1] for p in polygon.exterior.coords]
@@ -597,13 +611,17 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 x=x_coords, y=y_coords,
                 fill='toself', fillcolor='rgba(46,204,113,0.8)',
                 line=dict(color='#27AE60', width=2),
-                name=f"Îlot ({ilot.get('category', 'Unknown')})",
+                name=f"🟢 Îlots Placed ({len(floor_plan.ilots)} total)",
+                legendgroup='ilots',
+                showlegend=not ilot_shown,
                 hovertemplate=f"Area: {ilot.get('area', 0):.1f} m²<br>Category: {ilot.get('category', 'Unknown')}<extra></extra>"
             ))
+            ilot_shown = True
 
     if view_type == 'corridors':
         # Draw corridors
-        for corridor in floor_plan.corridors:
+        corridor_shown = False
+        for i, corridor in enumerate(floor_plan.corridors):
             polygon = corridor['polygon']
             x_coords = [p[0] for p in polygon.exterior.coords]
             y_coords = [p[1] for p in polygon.exterior.coords]
@@ -612,11 +630,14 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 x=x_coords, y=y_coords,
                 fill='toself', fillcolor='rgba(155,89,182,0.4)',
                 line=dict(color='#8E44AD', width=1),
-                name='Corridors',
+                name=f'🟣 Corridors ({len(floor_plan.corridors)} total)',
+                legendgroup='corridors',
+                showlegend=not corridor_shown,
                 hovertemplate=f"Width: {corridor.get('width', 0):.1f} m<br>Length: {corridor.get('length', 0):.1f} m<extra></extra>"
             ))
+            corridor_shown = True
 
-    # Update layout
+    # Update layout with proper legend
     fig.update_layout(
         title=f"Floor Plan - {view_type.title()} View",
         xaxis_title="X Coordinate (m)",
@@ -625,7 +646,18 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
         height=600,
         template="plotly_white",
         xaxis=dict(scaleanchor="y", scaleratio=1),
-        yaxis=dict(scaleanchor="x", scaleratio=1)
+        yaxis=dict(scaleanchor="x", scaleratio=1),
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=1,
+            xanchor="left",
+            x=1.02,
+            bgcolor="rgba(255,255,255,0.9)",
+            bordercolor="rgba(0,0,0,0.3)",
+            borderwidth=1,
+            font=dict(size=12)
+        )
     )
 
     return fig
