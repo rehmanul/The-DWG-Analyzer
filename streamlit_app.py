@@ -688,7 +688,7 @@ if uploaded_file:
             'Value': [
                 len(floor_plan.ilots),
                 f"{np.mean([ilot['area'] for ilot in floor_plan.ilots]):.1f} m²" if floor_plan.ilots else "0 m²",
-                f"{sum(ilot['area'] for ilot in floor_plan.ilots]):.1f} m²",
+                f"{sum(ilot['area'] for ilot in floor_plan.ilots):.1f} m²",
                 f"{metrics['utilization']:.1f}%"
             ]
         }
