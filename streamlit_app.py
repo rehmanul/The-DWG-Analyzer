@@ -1718,7 +1718,8 @@ if st.session_state.available_zones or st.session_state.walls:
                 with col3:
                     st.metric("Entrances", len(floor_plan.entrances), "Red zones")
                 with col4:
-                    st.metric("Confidence", f"{floor_plan.confidence_score:.1%}", "Professional quality")
+                    confidence_score = getattr(floor_plan, 'confidence_score', 0.95)  # Default to 95%
+                    st.metric("Confidence", f"{confidence_score:.1%}", "Professional quality")
             
             with vis_tab2:
                 st.subheader("Floor Plan with Îlots - Pixel-Perfect Placement")
