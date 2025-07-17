@@ -141,6 +141,11 @@ def process_dxf_file(file_content: bytes, filename: str) -> FloorPlan:
         for i, wall in enumerate(walls):
             if wall.area > 5:  # Only consider larger wall areas as spaces
                 try:
+                    # Handle MultiPolygon case
+                    if wall.geom_type == 'MultiPolygon':
+                        # Use the largest polygon from the multipolygon
+                        wall = max(wall.geoms, key=lambda p: p.area)
+                    
                     points = list(wall.exterior.coords)
                     processed_spaces.append({
                         'points': points,
@@ -412,21 +417,20 @@ def calculate_ilot_placement(floor_plan: FloorPlan, config: Dict) -> FloorPlan:
 
     forbidden_union = unary_union(forbidden_polygons) if forbidden_polygons else None
 
-    # Use advanced placement engine
-    placement_result = processors['ilot_engine'].place_ilots_intelligent(floor_plan, config)
+    # Use genetic algorithm for ilot placement
+    from core.ilot_optimizer import generate_ilots
+    placement_result = generate_ilots(zones, bounds, config, forbidden_union)
 
     # Convert results to floor plan format
     floor_plan.ilots = []
     for ilot in placement_result.get('ilots', []):
         floor_plan.ilots.append({
-            'polygon': ilot.polygon,
-            'area': ilot.area,
-            'category': ilot.category,
-            'position': (ilot.x + ilot.width/2, ilot.y + ilot.height/2),
-            'width': ilot.width,
-            'height': ilot.height,
-            'color': ilot.color,
-            'placement_score': ilot.placement_score
+            'polygon': ilot['polygon'],
+            'area': ilot['area'],
+            'category': ilot['category'],
+            'position': ilot['position'],
+            'width': ilot['width'],
+            'height': ilot['height']
         })
 
     # Generate corridors

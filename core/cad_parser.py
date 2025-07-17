@@ -99,6 +99,12 @@ def extract_polyline_geometry(entity) -> Dict[str, Any]:
         if not polygon.is_valid:
             polygon = polygon.buffer(0)  # Fix invalid polygons
         
+        # Handle MultiPolygon case
+        if polygon.geom_type == 'MultiPolygon':
+            # Use the largest polygon from the multipolygon
+            largest_poly = max(polygon.geoms, key=lambda p: p.area)
+            polygon = largest_poly
+        
         return {
             'points': points,
             'polygon': polygon,
