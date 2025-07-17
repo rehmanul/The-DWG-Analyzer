@@ -4,14 +4,13 @@ Robust error handling for file parsing operations
 
 import logging
 import traceback
-from typing import Any, Dict, List, Optional, Callable
-from functools import wraps
+from typing import Callable, Any, List, Dict
 
 logger = logging.getLogger(__name__)
 
 class RobustErrorHandler:
-    """Handles errors gracefully with fallback strategies"""
-    
+    """Handles errors gracefully without fallback zones"""
+
     @staticmethod
     def with_fallback(primary_func: Callable, fallback_func: Callable, error_context: str = ""):
         """Execute primary function with fallback on failure"""
@@ -21,14 +20,14 @@ class RobustErrorHandler:
                 return result
         except Exception as e:
             logger.warning(f"{error_context} - Primary method failed: {e}")
-        
+
         try:
             logger.info(f"{error_context} - Attempting fallback method")
             return fallback_func()
         except Exception as e:
             logger.error(f"{error_context} - Fallback method also failed: {e}")
             return None
-    
+
     @staticmethod
     def safe_execute(func: Callable, default_return: Any = None, context: str = ""):
         """Safely execute function with error logging"""
@@ -39,12 +38,12 @@ class RobustErrorHandler:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(traceback.format_exc())
             return default_return
-    
+
     @staticmethod
     def create_default_zones(file_path: str = "", context: str = "") -> List[Dict]:
-        """NO FALLBACK ZONES - REAL PARSING ONLY"""
-        logger.error(f"Attempted to create fallback zones for {context} - DISABLED")
-        return []  # Return empty list - no fake zones
+        """NO FALLBACK ZONES - Return empty list only"""
+        logger.error(f"No fallback zones created for {context}")
+        return []
 
 def robust_parser(error_context: str = ""):
     """Decorator for robust parsing with error handling - NO FALLBACKS"""

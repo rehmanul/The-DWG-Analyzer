@@ -547,6 +547,7 @@ if uploaded_file:
 
         elif file_extension in ['png', 'jpg', 'jpeg']:
             image = Image.open(io.BytesIO(file_content))
+            # Process image with full OpenCV functionality
             zones = processor.advanced_image_processing(image)
             floor_plan.spaces = zones['spaces']
             floor_plan.walls = zones['walls']
@@ -687,7 +688,7 @@ if uploaded_file:
             'Value': [
                 len(floor_plan.ilots),
                 f"{np.mean([ilot['area'] for ilot in floor_plan.ilots]):.1f} m²" if floor_plan.ilots else "0 m²",
-                f"{sum(ilot['area'] for ilot in floor_plan.ilots):.1f} m²",
+                f"{sum(ilot['area'] for ilot in floor_plan.ilots]):.1f} m²",
                 f"{metrics['utilization']:.1f}%"
             ]
         }
