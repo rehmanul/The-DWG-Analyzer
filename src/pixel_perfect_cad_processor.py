@@ -537,44 +537,124 @@ class PixelPerfectCADProcessor:
         """Process DWG file"""
         raise NotImplementedError("DWG processing requires conversion to DXF")
 
-    def _process_pdf_file(self, file_path: str) -> FloorPlan:
-        """Process PDF file"""
-        import fitz
+    def _process_pdf_file(self, file_path) -> Dict[str, Any]:
+        """Process PDF file with advanced extraction"""
+        try:
+            import fitz
+            
+            if isinstance(file_path, str):
+                pdf_doc = fitz.open(file_path)
+            else:
+                pdf_doc = fitz.open(stream=file_path.read(), filetype="pdf")
+            
+            page = pdf_doc[0]
+            mat = fitz.Matrix(3.0, 3.0)
+            pix = page.get_pixmap(matrix=mat)
+            img_data = pix.tobytes("png")
 
-        pdf_doc = fitz.open(file_path)
-        page = pdf_doc[0]
-        mat = fitz.Matrix(3.0, 3.0)
-        pix = page.get_pixmap(matrix=mat)
-        img_data = pix.tobytes("png")
+            img_array = np.frombuffer(img_data, np.uint8)
+            img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
-        img_array = np.frombuffer(img_data, np.uint8)
-        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            walls = self._extract_walls_from_image(img)
+            restricted = self._extract_restricted_from_image(img)
+            entrances = self._extract_entrances_from_image(img)
 
-        walls = self._extract_walls_from_image(img)
-        restricted = self._extract_restricted_from_image(img)
-        entrances = self._extract_entrances_from_image(img)
+            # Extract rooms from the image
+            rooms = self._extract_rooms_from_image(img)
 
-        # No demo zones in final implementation
-        rooms = [CADElement(
-            element_type='room',
-            geometry=Polygon([(0, 0), (img.shape[1], 0), 
-                            (img.shape[1], img.shape[0]), (0, img.shape[0])]),
-            properties={'area': img.shape[0] * img.shape[1]},
-            layer='image',
-            color='transparent',
-            line_weight=0.5
-        )]
+            return {
+                'walls': [self._cad_element_to_dict(w) for w in walls],
+                'rooms': [self._cad_element_to_dict(r) for r in rooms],
+                'restricted_areas': [self._cad_element_to_dict(r) for r in restricted],
+                'entrances': [self._cad_element_to_dict(e) for e in entrances]
+            }
+            
+        except Exception as e:
+            logger.error(f"PDF processing error: {e}")
+            return {'walls': [], 'rooms': [], 'restricted_areas': [], 'entrances': []}
 
-        return FloorPlan(
-            walls=walls,
-            doors=[],
-            windows=[],
-            rooms=rooms,
-            restricted_areas=restricted,
-            entrances=entrances,
-            dimensions=[],
-            scale=1.0,
-            units='pixels',
-            bounds=(0, 0, img.shape[1], img.shape[0]),
-            drawing_info={'format': 'PDF', 'resolution': img.shape}
-        )
+    def _process_image_advanced(self, img_array: np.ndarray) -> Dict[str, Any]:
+        """Advanced image processing with real computer vision"""
+        walls = self._extract_walls_from_image(img_array)
+        restricted = self._extract_restricted_from_image(img_array)
+        entrances = self._extract_entrances_from_image(img_array)
+        rooms = self._extract_rooms_from_image(img_array)
+
+        return {
+            'walls': [self._cad_element_to_dict(w) for w in walls],
+            'rooms': [self._cad_element_to_dict(r) for r in rooms],
+            'restricted_areas': [self._cad_element_to_dict(r) for r in restricted],
+            'entrances': [self._cad_element_to_dict(e) for e in entrances]
+        }
+
+    def _extract_rooms_from_image(self, img: np.ndarray) -> List[CADElement]:
+        """Extract room boundaries from image using advanced computer vision"""
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Apply advanced preprocessing
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # Adaptive thresholding for better room detection
+        thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+        
+        # Morphological operations to clean up
+        kernel = np.ones((3,3), np.uint8)
+        cleaned = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, kernel)
+        
+        # Find contours for room boundaries
+        contours, _ = cv2.findContours(cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        rooms = []
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area > 1000:  # Minimum room area
+                # Approximate contour to polygon
+                epsilon = 0.02 * cv2.arcLength(contour, True)
+                approx = cv2.approxPolyDP(contour, epsilon, True)
+                
+                if len(approx) >= 4:  # At least a quadrilateral
+                    points = [(int(p[0][0]), int(p[0][1])) for p in approx]
+                    
+                    try:
+                        geometry = Polygon(points)
+                        if geometry.is_valid and geometry.area > 500:
+                            room = CADElement(
+                                element_type='room',
+                                geometry=geometry,
+                                properties={'area': geometry.area, 'perimeter': geometry.length},
+                                layer='detected_rooms',
+                                color='transparent',
+                                line_weight=0.5
+                            )
+                            rooms.append(room)
+                    except:
+                        continue
+        
+        return rooms
+
+    def _cad_element_to_dict(self, element: CADElement) -> Dict[str, Any]:
+        """Convert CADElement to dictionary format"""
+        try:
+            if hasattr(element.geometry, 'exterior'):
+                # Polygon
+                points = list(element.geometry.exterior.coords)[:-1]  # Remove duplicate last point
+                area = element.geometry.area
+            elif hasattr(element.geometry, 'coords'):
+                # LineString
+                points = list(element.geometry.coords)
+                area = 0
+            else:
+                points = []
+                area = 0
+            
+            return {
+                'points': points,
+                'area': area,
+                'element_type': element.element_type,
+                'properties': element.properties,
+                'geometry': points  # For compatibility
+            }
+        except Exception as e:
+            logger.warning(f"Error converting CAD element: {e}")
+            return {'points': [], 'area': 0, 'element_type': 'unknown', 'properties': {}}
