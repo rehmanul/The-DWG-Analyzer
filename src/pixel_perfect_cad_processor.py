@@ -6,7 +6,6 @@ Implements professional-grade CAD file processing with exact visual matching
 
 import ezdxf
 import numpy as np
-import cv2
 from PIL import Image, ImageDraw, ImageFont
 from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import unary_union
@@ -14,6 +13,14 @@ import math
 from typing import List, Dict, Tuple, Optional, Any
 from dataclasses import dataclass
 import logging
+
+# Try to import OpenCV, fall back to PIL-only processing if not available
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
+    cv2 = None
 
 logger = logging.getLogger(__name__)
 
@@ -483,7 +490,10 @@ class PixelPerfectCADProcessor:
         return self._process_image_data(img_data)
     
     def _process_image_data(self, img_data: bytes) -> FloorPlan:
-        """Process image data using computer vision"""
+        """Process image data using computer vision or PIL fallback"""
+        if not OPENCV_AVAILABLE:
+            return self._process_image_data_pil_only(img_data)
+        
         # Convert to OpenCV format
         img_array = np.frombuffer(img_data, np.uint8)
         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
@@ -518,8 +528,49 @@ class PixelPerfectCADProcessor:
             drawing_info={'format': 'Image', 'resolution': img.shape}
         )
     
+    def _process_image_data_pil_only(self, img_data: bytes) -> FloorPlan:
+        """Process image data using PIL only (fallback for cloud environments)"""
+        from io import BytesIO
+        
+        # Convert to PIL format
+        img = Image.open(BytesIO(img_data))
+        img_array = np.array(img)
+        
+        # Basic color-based extraction using PIL and numpy
+        walls = self._extract_walls_from_image_pil(img_array)
+        restricted = self._extract_restricted_from_image_pil(img_array)
+        entrances = self._extract_entrances_from_image_pil(img_array)
+        
+        # Create simple room from overall boundary
+        rooms = [CADElement(
+            element_type='room',
+            geometry=Polygon([(0, 0), (img.width, 0), 
+                            (img.width, img.height), (0, img.height)]),
+            properties={'area': img.width * img.height},
+            layer='image',
+            color='transparent',
+            line_weight=0.5
+        )]
+        
+        return FloorPlan(
+            walls=walls,
+            doors=[],
+            windows=[],
+            rooms=rooms,
+            restricted_areas=restricted,
+            entrances=entrances,
+            dimensions=[],
+            scale=1.0,
+            units='pixels',
+            bounds=(0, 0, img.width, img.height),
+            drawing_info={'format': 'Image', 'resolution': (img.width, img.height)}
+        )
+    
     def _extract_walls_from_image(self, img) -> List[CADElement]:
         """Extract walls from image using edge detection"""
+        if not OPENCV_AVAILABLE:
+            return []
+        
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 50, 150)
         
@@ -549,8 +600,50 @@ class PixelPerfectCADProcessor:
         
         return walls
     
+    def _extract_walls_from_image_pil(self, img_array) -> List[CADElement]:
+        """Extract walls using PIL-only processing (cloud fallback)"""
+        # Simple edge detection using numpy
+        gray = np.mean(img_array, axis=2).astype(np.uint8)
+        
+        # Basic edge detection using gradient
+        edges = np.zeros_like(gray)
+        edges[1:-1, 1:-1] = np.abs(gray[:-2, 1:-1] - gray[2:, 1:-1]) + \
+                           np.abs(gray[1:-1, :-2] - gray[1:-1, 2:])
+        
+        # Simple contour detection
+        threshold = np.percentile(edges, 90)
+        edge_points = np.where(edges > threshold)
+        
+        walls = []
+        if len(edge_points[0]) > 10:
+            # Create a simple wall outline
+            min_y, max_y = np.min(edge_points[0]), np.max(edge_points[0])
+            min_x, max_x = np.min(edge_points[1]), np.max(edge_points[1])
+            
+            # Create boundary walls
+            boundary_points = [
+                (min_x, min_y), (max_x, min_y),
+                (max_x, max_y), (min_x, max_y), (min_x, min_y)
+            ]
+            
+            geometry = LineString(boundary_points)
+            wall = CADElement(
+                element_type='wall',
+                geometry=geometry,
+                properties={'length': geometry.length},
+                layer='image_walls_pil',
+                color=self.colors['walls'],
+                line_weight=self.line_weights['walls']
+            )
+            walls.append(wall)
+        
+        return walls
+    
     def _extract_restricted_from_image(self, img) -> List[CADElement]:
         """Extract restricted areas using blue color detection"""
+        if not OPENCV_AVAILABLE:
+            return []
+        
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         
         # Blue color range
@@ -579,8 +672,46 @@ class PixelPerfectCADProcessor:
         
         return restricted
     
+    def _extract_restricted_from_image_pil(self, img_array) -> List[CADElement]:
+        """Extract restricted areas using PIL-only blue color detection"""
+        # Convert RGB to approximate HSV and detect blue areas
+        r, g, b = img_array[:,:,0], img_array[:,:,1], img_array[:,:,2]
+        
+        # Simple blue detection: high blue, low red/green
+        blue_mask = (b > 100) & (r < 100) & (g < 100)
+        
+        restricted = []
+        if np.any(blue_mask):
+            # Find blue regions
+            blue_points = np.where(blue_mask)
+            if len(blue_points[0]) > 500:
+                # Create a simple rectangular restricted area
+                min_y, max_y = np.min(blue_points[0]), np.max(blue_points[0])
+                min_x, max_x = np.min(blue_points[1]), np.max(blue_points[1])
+                
+                area_points = [
+                    (min_x, min_y), (max_x, min_y),
+                    (max_x, max_y), (min_x, max_y)
+                ]
+                
+                geometry = Polygon(area_points)
+                restricted_area = CADElement(
+                    element_type='restricted',
+                    geometry=geometry,
+                    properties={'area': geometry.area},
+                    layer='image_restricted_pil',
+                    color=self.colors['restricted'],
+                    line_weight=1.0
+                )
+                restricted.append(restricted_area)
+        
+        return restricted
+    
     def _extract_entrances_from_image(self, img) -> List[CADElement]:
         """Extract entrances using red color detection"""
+        if not OPENCV_AVAILABLE:
+            return []
+        
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         
         # Red color range
@@ -614,5 +745,40 @@ class PixelPerfectCADProcessor:
                         line_weight=2.0
                     )
                     entrances.append(entrance)
+        
+        return entrances
+    
+    def _extract_entrances_from_image_pil(self, img_array) -> List[CADElement]:
+        """Extract entrances using PIL-only red color detection"""
+        # Convert RGB and detect red areas
+        r, g, b = img_array[:,:,0], img_array[:,:,1], img_array[:,:,2]
+        
+        # Simple red detection: high red, low green/blue
+        red_mask = (r > 100) & (g < 100) & (b < 100)
+        
+        entrances = []
+        if np.any(red_mask):
+            # Find red regions
+            red_points = np.where(red_mask)
+            if len(red_points[0]) > 100:
+                # Create a simple rectangular entrance area
+                min_y, max_y = np.min(red_points[0]), np.max(red_points[0])
+                min_x, max_x = np.min(red_points[1]), np.max(red_points[1])
+                
+                entrance_points = [
+                    (min_x, min_y), (max_x, min_y),
+                    (max_x, max_y), (min_x, max_y)
+                ]
+                
+                geometry = Polygon(entrance_points)
+                entrance = CADElement(
+                    element_type='entrance',
+                    geometry=geometry,
+                    properties={'area': geometry.area},
+                    layer='image_entrances_pil',
+                    color=self.colors['entrances'],
+                    line_weight=2.0
+                )
+                entrances.append(entrance)
         
         return entrances
