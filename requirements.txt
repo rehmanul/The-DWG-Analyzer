@@ -31,3 +31,5 @@ scikit-learn
 scipy
 shapely
 streamlit
+psycopg2-binary
+sqlalchemy

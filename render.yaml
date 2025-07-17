@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: enterprise-ilot-placement-system
+    env: python
+    plan: starter
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0"
+    envVars:
+      - key: PYTHONPATH
+        value: "/opt/render/project/src"
+      - key: STREAMLIT_SERVER_PORT
+        value: "$PORT"
+      - key: STREAMLIT_SERVER_ADDRESS
+        value: "0.0.0.0"
+      - key: STREAMLIT_SERVER_HEADLESS
+        value: "true"
+      - key: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+        value: "false"
