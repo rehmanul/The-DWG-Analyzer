@@ -23,12 +23,13 @@ from collections import defaultdict
 import uuid
 
 # Try to import OpenCV, fall back to PIL-only processing if not available
+OPENCV_AVAILABLE = False
 try:
     import cv2
     OPENCV_AVAILABLE = True
 except ImportError:
     OPENCV_AVAILABLE = False
-    st.warning("OpenCV not available in cloud environment. Using advanced PIL-based processing.")
+    # Don't show warning immediately, only when needed
 
 # 🎨 ENTERPRISE CONFIGURATION
 st.set_page_config(
@@ -241,51 +242,86 @@ class EnterpriseFloorPlanProcessor:
 
     def advanced_pil_processing(self, image):
         """Advanced PIL-based processing with professional algorithms"""
-        # Convert to grayscale for analysis
-        gray = image.convert('L')
-
-        # Apply advanced filtering
-        enhanced = gray.filter(ImageFilter.EDGE_ENHANCE_MORE)
-        edges = enhanced.filter(ImageFilter.FIND_EDGES)
-
-        # Convert to numpy for analysis
-        img_array = np.array(edges)
-
-        # Threshold for binary image
-        threshold = np.mean(img_array) + np.std(img_array)
-        binary = (img_array > threshold).astype(np.uint8) * 255
-
-        # Find connected components (simulating contour detection)
-        labeled_array, num_features = self.connected_components(binary)
-
+        # Convert to RGB and then to HSV for better color detection
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        img_array = np.array(image)
+        
+        # Professional color space conversion without OpenCV
+        rgb_normalized = img_array.astype(np.float32) / 255.0
+        
+        # Manual HSV conversion
+        r, g, b = rgb_normalized[:,:,0], rgb_normalized[:,:,1], rgb_normalized[:,:,2]
+        max_val = np.maximum(np.maximum(r, g), b)
+        min_val = np.minimum(np.minimum(r, g), b)
+        diff = max_val - min_val
+        
+        # Value channel
+        v = max_val
+        
+        # Saturation channel
+        s = np.where(max_val == 0, 0, diff / max_val)
+        
+        # Hue channel
+        h = np.zeros_like(max_val)
+        mask = diff != 0
+        
+        r_mask = (max_val == r) & mask
+        g_mask = (max_val == g) & mask
+        b_mask = (max_val == b) & mask
+        
+        h[r_mask] = (60 * ((g[r_mask] - b[r_mask]) / diff[r_mask]) + 360) % 360
+        h[g_mask] = (60 * ((b[g_mask] - r[g_mask]) / diff[g_mask]) + 120) % 360
+        h[b_mask] = (60 * ((r[b_mask] - g[b_mask]) / diff[b_mask]) + 240) % 360
+        
+        # Detect different zones using color analysis
         spaces = []
         walls = []
-
-        # Extract regions and classify
-        for i in range(1, num_features + 1):
-            region_mask = (labeled_array == i)
-            if np.sum(region_mask) > 1000:  # Minimum area
-                # Find bounding box
-                rows, cols = np.where(region_mask)
-                if len(rows) > 0 and len(cols) > 0:
-                    min_row, max_row = np.min(rows), np.max(rows)
-                    min_col, max_col = np.min(cols), np.max(cols)
-
-                    # Create polygon from bounding box
-                    polygon = Polygon([
-                        (min_col, min_row),
-                        (max_col, min_row),
-                        (max_col, max_row),
-                        (min_col, max_row)
-                    ])
-
-                    spaces.append(polygon)
-
+        entrances = []
+        restricted = []
+        
+        # Wall detection (dark/black areas)
+        wall_mask = (v < 0.3) & (s < 0.5)
+        
+        # Space detection (white/light areas)
+        space_mask = (v > 0.7) & (s < 0.3)
+        
+        # Entrance detection (red areas)
+        entrance_mask = ((h < 15) | (h > 345)) & (s > 0.5) & (v > 0.3)
+        
+        # Restricted areas (blue areas)
+        restricted_mask = (h > 200) & (h < 260) & (s > 0.5) & (v > 0.3)
+        
+        # Process each mask to find contours using morphological operations
+        def process_mask_to_polygons(mask, min_area=500):
+            polygons = []
+            labeled = self.label_connected_components(mask)
+            
+            for label in range(1, labeled.max() + 1):
+                component_mask = (labeled == label)
+                if np.sum(component_mask) > min_area:
+                    # Get boundary points
+                    boundary = self.get_boundary_points(component_mask)
+                    if len(boundary) >= 3:
+                        try:
+                            polygon = Polygon(boundary)
+                            if polygon.is_valid and polygon.area > min_area * 0.01:
+                                polygons.append(polygon)
+                        except:
+                            continue
+            return polygons
+        
+        spaces = process_mask_to_polygons(space_mask, 1000)
+        walls = process_mask_to_polygons(wall_mask, 100)
+        entrances = process_mask_to_polygons(entrance_mask, 50)
+        restricted = process_mask_to_polygons(restricted_mask, 200)
+        
         return {
             'walls': walls,
             'spaces': spaces,
-            'entrances': [],
-            'restricted': []
+            'entrances': entrances,
+            'restricted': restricted
         }
 
     def connected_components(self, binary_image):
@@ -309,7 +345,7 @@ class EnterpriseFloorPlanProcessor:
             i, j = stack.pop()
             if (i < 0 or i >= binary_image.shape[0] or 
                 j < 0 or j >= binary_image.shape[1] or 
-                binary_image[i, j] != 255 or labeled[i, j] != 0):
+                not binary_image[i, j] or labeled[i, j] != 0):
                 continue
 
             labeled[i, j] = label
@@ -317,6 +353,49 @@ class EnterpriseFloorPlanProcessor:
             # Add neighbors
             for di, dj in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 stack.append((i + di, j + dj))
+    
+    def label_connected_components(self, mask):
+        """Label connected components in boolean mask"""
+        labeled = np.zeros(mask.shape, dtype=np.int32)
+        label = 1
+        
+        for i in range(mask.shape[0]):
+            for j in range(mask.shape[1]):
+                if mask[i, j] and labeled[i, j] == 0:
+                    self.flood_fill(mask, labeled, i, j, label)
+                    label += 1
+        
+        return labeled
+    
+    def get_boundary_points(self, mask):
+        """Extract boundary points from binary mask"""
+        boundary_points = []
+        h, w = mask.shape
+        
+        # Find boundary pixels
+        for i in range(1, h-1):
+            for j in range(1, w-1):
+                if mask[i, j]:
+                    # Check if it's a boundary pixel
+                    is_boundary = False
+                    for di in [-1, 0, 1]:
+                        for dj in [-1, 0, 1]:
+                            if not mask[i+di, j+dj]:
+                                is_boundary = True
+                                break
+                        if is_boundary:
+                            break
+                    
+                    if is_boundary:
+                        boundary_points.append((j, i))  # (x, y) format
+        
+        # Simplify boundary using Douglas-Peucker-like algorithm
+        if len(boundary_points) > 10:
+            # Simple decimation for performance
+            step = max(1, len(boundary_points) // 20)
+            boundary_points = boundary_points[::step]
+        
+        return boundary_points
 
 class AdvancedIlotPlacementEngine:
     def __init__(self):
@@ -546,7 +625,11 @@ if uploaded_file:
 
         elif file_extension in ['png', 'jpg', 'jpeg']:
             image = Image.open(io.BytesIO(file_content))
-            # Process image with full OpenCV functionality
+            
+            if not OPENCV_AVAILABLE:
+                st.info("🔧 Using advanced PIL-based image processing for professional analysis")
+            
+            # Process image with advanced algorithms
             zones = processor.advanced_image_processing(image)
             floor_plan.spaces = zones['spaces']
             floor_plan.walls = zones['walls']
