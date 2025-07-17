@@ -550,12 +550,12 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 y=y_coords,
                 mode='lines',
                 fill='toself',
-                fillcolor='rgba(100, 150, 255, 0.8)',  # Solid blue like reference
-                line=dict(color='#3498DB', width=2),
-                name='NO ENTREE' if i == 0 else None,
+                fillcolor='rgba(70, 130, 255, 0.9)',  # Bright blue like reference
+                line=dict(color='#4682FF', width=3),
+                name='🔵 NO ENTREE' if i == 0 else None,
                 showlegend=i == 0,
                 hoverinfo='text',
-                hovertext='NO ENTREE - Restricted Area'
+                hovertext='🔵 NO ENTREE - Zone Restrictée'
             ))
 
     # Draw entrances (Red zones - ENTREE/SORTIE)
@@ -565,10 +565,10 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 x=[entrance['location'][0]],
                 y=[entrance['location'][1]],
                 mode='markers',
-                marker=dict(color='#E74C3C', size=12, symbol='square'),
-                name='ENTRÉE/SORTIE' if i == 0 else None,
+                marker=dict(color='#FF4444', size=15, symbol='diamond'),
+                name='🔴 ENTRÉE/SORTIE' if i == 0 else None,
                 showlegend=i == 0,
-                hovertemplate="ENTRÉE/SORTIE - Entrance/Exit<extra></extra>"
+                hovertemplate="🔴 ENTRÉE/SORTIE - Entrance/Exit<extra></extra>"
             ))
         elif 'geometry' in entrance:
             points = entrance['geometry']
@@ -579,11 +579,11 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                     x=x_coords, y=y_coords,
                     mode='lines',
                     fill='toself' if len(points) > 2 else None,
-                    fillcolor='rgba(231, 76, 60, 0.8)' if len(points) > 2 else None,  # Solid red like reference
-                    line=dict(color='#E74C3C', width=4),
-                    name='ENTRÉE/SORTIE' if i == 0 else None,
+                    fillcolor='rgba(255, 68, 68, 0.9)' if len(points) > 2 else None,  # Bright red like reference
+                    line=dict(color='#FF4444', width=4),
+                    name='🔴 ENTRÉE/SORTIE' if i == 0 else None,
                     showlegend=i == 0,
-                    hovertemplate="ENTRÉE/SORTIE - Entrance/Exit<extra></extra>"
+                    hovertemplate="🔴 ENTRÉE/SORTIE - Entrance/Exit<extra></extra>"
                 ))
 
     if view_type in ['ilots', 'corridors']:
