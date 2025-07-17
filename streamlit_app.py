@@ -832,8 +832,7 @@ def main():
         with tab3:
             st.subheader("Corridor Network System")
             fig3 = create_visualization(floor_plan, "corridors")
-            st```python
-.plotly_chart(fig3, use_container_width=True)
+            st.plotly_chart(fig3, use_container_width=True)
 
             # Corridor metrics
             if floor_plan.corridors:
