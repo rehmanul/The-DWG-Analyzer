@@ -18,7 +18,6 @@ import base64
 from scipy.spatial import distance
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
-import cv2
 import networkx as nx
 from collections import defaultdict
 import uuid
