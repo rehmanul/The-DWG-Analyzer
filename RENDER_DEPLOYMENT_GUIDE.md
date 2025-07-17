@@ -38,7 +38,7 @@ The following environment variables will be automatically set by Render:
    - **Name**: `enterprise-ilot-placement-system`
    - **Environment**: `Python 3`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0`
+   - **Start Command**: `./start.sh`
    - **Plan**: `Starter` (Free tier available)
 
 4. **Deploy**

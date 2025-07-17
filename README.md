@@ -25,7 +25,7 @@ A sophisticated CAD analysis application for architectural drawing analysis and 
 3. Connect your repository
 4. Use these settings:
    - Build Command: `pip install -r requirements.txt`
-   - Start Command: `streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0`
+   - Start Command: `./start.sh`
 
 See `RENDER_DEPLOYMENT_GUIDE.md` for detailed instructions.
 

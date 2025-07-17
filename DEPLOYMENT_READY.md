@@ -54,7 +54,7 @@ Your Enterprise Îlot Placement System has been successfully prepared for Render
    - **Name**: `enterprise-ilot-placement-system`
    - **Environment**: `Python 3`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0`
+   - **Start Command**: `./start.sh`
    - **Plan**: `Starter` (Free tier available)
 
 ### Environment Variables (Optional)
