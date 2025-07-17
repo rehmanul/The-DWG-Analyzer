@@ -131,7 +131,135 @@ for key in ['walls', 'restricted', 'entrances', 'available_zones', 'ilots', 'cor
         st.session_state[key] = []
 
 def load_file_with_intelligence(uploaded_file):
-    """🧠 INTELLIGENT MULTI-FORMAT FILE ANALYSIS"""
+    """🧠 ULTRA-INTELLIGENT MULTI-FORMAT FILE ANALYSIS - PHASE 1 IMPLEMENTATION"""
+    import tempfile
+    from src.ultra_cad_processor import UltraCADProcessor
+    from src.geometric_recognition_engine import GeometricRecognitionEngine
+    from src.pixel_perfect_renderer import PixelPerfectRenderer
+    
+    file_type = uploaded_file.name.split('.')[-1].lower()
+    
+    try:
+        # Create temporary file for processing
+        with tempfile.NamedTemporaryFile(suffix=f'.{file_type}', delete=False) as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            tmp_path = tmp_file.name
+        
+        try:
+            # Initialize Ultra CAD Processor (Phase 1)
+            processor = UltraCADProcessor()
+            geometric_engine = GeometricRecognitionEngine()
+            
+            # Process CAD file with advanced algorithms
+            st.info("🚀 Processing with Ultra CAD Processor - Phase 1 Implementation")
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            status_text.text("Phase 1: Advanced CAD file processing...")
+            progress_bar.progress(0.2)
+            
+            # Extract floor plans with pixel-perfect accuracy
+            floor_plans = processor.process_cad_file(tmp_path, extract_all_sheets=True)
+            
+            if not floor_plans:
+                st.error("No valid floor plans detected in the file")
+                return [], [], [], []
+            
+            status_text.text("Phase 1: Geometric element recognition...")
+            progress_bar.progress(0.5)
+            
+            # Get best floor plan and analyze geometry
+            best_plan = processor.get_best_floor_plan(floor_plans)
+            geometric_analysis = geometric_engine.analyze_floor_plan_geometry(best_plan.elements)
+            
+            status_text.text("Phase 1: Converting to application format...")
+            progress_bar.progress(0.8)
+            
+            # Convert to legacy format for compatibility
+            walls, restricted, entrances, available = convert_phase1_to_legacy_format(
+                geometric_analysis, best_plan
+            )
+            
+            progress_bar.progress(1.0)
+            status_text.text("✅ Phase 1 processing complete!")
+            
+            # Display advanced analysis results
+            st.success(f"""
+            ✅ **Ultra CAD Processing Complete**
+            - **Floor Plans Detected**: {len(floor_plans)}
+            - **Confidence Score**: {best_plan.confidence_score:.2%}
+            - **Walls Detected**: {len(geometric_analysis['walls'])}
+            - **Rooms Identified**: {len(geometric_analysis['rooms'])}
+            - **Total Elements**: {best_plan.sheet_info.get('entity_count', 0)}
+            - **Processing Quality**: Pixel-Perfect Professional
+            """)
+            
+            # Store advanced analysis in session state
+            st.session_state['phase1_analysis'] = {
+                'floor_plans': floor_plans,
+                'best_plan': best_plan,
+                'geometric_analysis': geometric_analysis,
+                'processor_metadata': processor.export_floor_plan_analysis(best_plan)
+            }
+            
+            return walls, restricted, entrances, available
+            
+        finally:
+            import os
+            os.unlink(tmp_path)
+            
+    except Exception as e:
+        st.error(f"🚨 Ultra CAD Processing Error: {e}")
+        # Fallback to original processing for compatibility
+        return load_file_with_fallback(uploaded_file)
+
+def convert_phase1_to_legacy_format(geometric_analysis, best_plan):
+    """Convert Phase 1 analysis to legacy format for compatibility"""
+    walls = []
+    restricted = []
+    entrances = []
+    available = []
+    
+    # Convert walls
+    for wall in geometric_analysis['walls']:
+        walls.append({
+            'points': wall.points,
+            'type': 'wall',
+            'thickness': wall.thickness,
+            'length': wall.length
+        })
+    
+    # Convert restricted areas
+    for area in geometric_analysis['restricted_areas']:
+        restricted.append({
+            'points': area.points,
+            'type': 'restricted',
+            'area': area.properties.get('area', 0)
+        })
+    
+    # Convert entrances
+    for entrance in geometric_analysis['entrances']:
+        entrances.append({
+            'points': entrance.points,
+            'type': 'entrance',
+            'width': entrance.length
+        })
+    
+    # Convert rooms to available zones
+    for room in geometric_analysis['rooms']:
+        if hasattr(room.polygon, 'exterior'):
+            points = list(room.polygon.exterior.coords)[:-1]  # Remove duplicate last point
+            available.append({
+                'points': points,
+                'type': 'room',
+                'area': room.area,
+                'room_type': room.room_type
+            })
+    
+    return walls, restricted, entrances, available
+
+def load_file_with_fallback(uploaded_file):
+    """Fallback to original processing if Phase 1 fails"""
     file_type = uploaded_file.name.split('.')[-1].lower()
     
     try:
@@ -1541,10 +1669,207 @@ if st.session_state.available_zones or st.session_state.walls:
     tab1, tab2, tab3 = st.tabs(["2D Interactive View", "3D Visualization", "Analytics Dashboard"])
     
     with tab1:
-        col_main, col_layers = st.columns([4, 1])
+        # Phase 1 Implementation: Pixel-Perfect Professional Visualization
+        if 'phase1_analysis' in st.session_state:
+            st.success("🚀 **Phase 1 Ultra CAD Processing Active** - Pixel-Perfect Professional Mode")
+            
+            # Create visualization tabs for different phases
+            phase_tab1, phase_tab2, phase_tab3, phase_tab4 = st.tabs([
+                "📐 Empty Floor Plan", 
+                "🏪 With Îlots", 
+                "🛤️ With Corridors", 
+                "📊 Advanced Analysis"
+            ])
+            
+            with phase_tab1:
+                st.subheader("Phase 2: Empty Floor Plan - Pixel Perfect")
+                st.info("Exact color matching: Gray walls, Blue restricted areas, Red entrances")
+                
+                # Initialize pixel-perfect renderer
+                from src.pixel_perfect_renderer import PixelPerfectRenderer, RenderingStyle
+                renderer = PixelPerfectRenderer(RenderingStyle(show_grid=True, show_measurements=True))
+                
+                # Get processed data
+                phase1_data = st.session_state['phase1_analysis']
+                best_plan = phase1_data['best_plan']
+                geometric_analysis = phase1_data['geometric_analysis']
+                
+                # Render empty floor plan (Phase 2 implementation)
+                empty_plan_fig = renderer.render_empty_floor_plan(
+                    walls=geometric_analysis['walls'],
+                    restricted_areas=geometric_analysis['restricted_areas'],
+                    entrances=geometric_analysis['entrances'],
+                    bounds=best_plan.bounds
+                )
+                
+                st.plotly_chart(empty_plan_fig, use_container_width=True, config=renderer.config)
+                
+                # Display metrics
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Walls", len(geometric_analysis['walls']), "Thick gray lines")
+                with col2:
+                    st.metric("Restricted", len(geometric_analysis['restricted_areas']), "Blue zones")
+                with col3:
+                    st.metric("Entrances", len(geometric_analysis['entrances']), "Red zones")
+                with col4:
+                    st.metric("Confidence", f"{best_plan.confidence_score:.1%}", "Professional quality")
+            
+            with phase_tab2:
+                st.subheader("Phase 3: Floor Plan with Îlots - Professional Placement")
+                
+                # Generate îlots if button clicked
+                if st.session_state.get('generate_layout'):
+                    with st.spinner("🧠 Generating optimal îlot placement..."):
+                        # Use legacy îlot generation for now, enhanced in future phases
+                        ilots = generate_intelligent_ilots(
+                            st.session_state.available_zones,
+                            st.session_state.walls,
+                            st.session_state.restricted,
+                            size_0_1, size_1_3, size_3_5, size_5_10,
+                            algorithm=algorithm
+                        )
+                        st.session_state.ilots = ilots
+                        st.session_state.generate_layout = False
+                
+                if st.session_state.get('ilots'):
+                    # Render with îlots
+                    ilots_fig = renderer.render_floor_plan_with_ilots(
+                        walls=geometric_analysis['walls'],
+                        restricted_areas=geometric_analysis['restricted_areas'],
+                        entrances=geometric_analysis['entrances'],
+                        ilots=st.session_state.ilots,
+                        bounds=best_plan.bounds
+                    )
+                    
+                    st.plotly_chart(ilots_fig, use_container_width=True, config=renderer.config)
+                    
+                    # Enhanced metrics
+                    total_area = sum(ilot.get('area', 0) for ilot in st.session_state.ilots)
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Total Îlots", len(st.session_state.ilots))
+                    with col2:
+                        st.metric("Total Area", f"{total_area:.1f}m²")
+                    with col3:
+                        st.metric("Utilization", f"{(total_area / (best_plan.bounds[2] * best_plan.bounds[3]) * 100):.1f}%")
+                else:
+                    st.info("Click 'Generate Layout' in the sidebar to place îlots")
+            
+            with phase_tab3:
+                st.subheader("Phase 4: Complete Floor Plan with Corridors")
+                
+                if st.session_state.get('ilots'):
+                    # Generate corridors if needed
+                    if 'corridors' not in st.session_state or not st.session_state.corridors:
+                        with st.spinner("🛤️ Generating corridor network..."):
+                            corridors = generate_intelligent_corridors(
+                                st.session_state.ilots,
+                                st.session_state.walls,
+                                corridor_width
+                            )
+                            st.session_state.corridors = corridors
+                    
+                    # Render complete floor plan
+                    complete_fig = renderer.render_floor_plan_with_corridors(
+                        walls=geometric_analysis['walls'],
+                        restricted_areas=geometric_analysis['restricted_areas'],
+                        entrances=geometric_analysis['entrances'],
+                        ilots=st.session_state.ilots,
+                        corridors=st.session_state.corridors,
+                        bounds=best_plan.bounds
+                    )
+                    
+                    st.plotly_chart(complete_fig, use_container_width=True, config=renderer.config)
+                    
+                    # Export buttons
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        if st.button("📁 Export High-Res PNG"):
+                            filename = f"{project_name}_complete_plan.png"
+                            exported_file = renderer.export_high_resolution_image(complete_fig, filename)
+                            if exported_file:
+                                st.success(f"Exported: {filename}")
+                    with col2:
+                        if st.button("📄 Export PDF Report"):
+                            pdf_data = export_pdf_report(st.session_state.ilots, st.session_state.corridors, st.session_state.walls)
+                            if pdf_data:
+                                st.download_button("📥 Download PDF", pdf_data, f"{project_name}_report.pdf", "application/pdf")
+                    with col3:
+                        if st.button("📐 Export DXF"):
+                            dxf_data = export_dxf_layout(st.session_state.ilots, st.session_state.corridors, st.session_state.walls)
+                            if dxf_data:
+                                st.download_button("📥 Download DXF", dxf_data, f"{project_name}_layout.dxf", "application/dxf")
+                else:
+                    st.info("Generate îlots first to create corridor network")
+            
+            with phase_tab4:
+                st.subheader("Advanced Analysis - Professional Metrics")
+                
+                # Display comprehensive analysis
+                processor_metadata = phase1_data['processor_metadata']
+                
+                # Create analysis dashboard
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**Geometric Analysis:**")
+                    analysis_data = {
+                        "Element Type": ["Walls", "Rooms", "Restricted Areas", "Entrances"],
+                        "Count": [
+                            len(geometric_analysis['walls']),
+                            len(geometric_analysis['rooms']),
+                            len(geometric_analysis['restricted_areas']),
+                            len(geometric_analysis['entrances'])
+                        ],
+                        "Total Length/Area": [
+                            f"{sum(w.length for w in geometric_analysis['walls']):.1f}m",
+                            f"{sum(r.area for r in geometric_analysis['rooms']):.1f}m²",
+                            f"{len(geometric_analysis['restricted_areas'])} zones",
+                            f"{len(geometric_analysis['entrances'])} openings"
+                        ]
+                    }
+                    
+                    import pandas as pd
+                    df = pd.DataFrame(analysis_data)
+                    st.dataframe(df, use_container_width=True)
+                
+                with col2:
+                    st.write("**Processing Quality:**")
+                    quality_metrics = {
+                        "Confidence Score": f"{best_plan.confidence_score:.1%}",
+                        "Processing Method": "Ultra CAD Processor",
+                        "Scale": f"1:{best_plan.scale}",
+                        "Units": best_plan.units,
+                        "Entities Processed": best_plan.sheet_info.get('entity_count', 'N/A'),
+                        "File Format": best_plan.sheet_info.get('format', 'CAD')
+                    }
+                    
+                    for metric, value in quality_metrics.items():
+                        st.metric(metric, value)
+                
+                # Room analysis if available
+                if geometric_analysis['rooms']:
+                    st.write("**Room Analysis:**")
+                    room_data = []
+                    for i, room in enumerate(geometric_analysis['rooms']):
+                        room_data.append({
+                            "Room ID": f"Room_{i+1:02d}",
+                            "Type": room.room_type,
+                            "Area": f"{room.area:.1f}m²",
+                            "Perimeter": f"{room.perimeter:.1f}m",
+                            "Openings": len(room.openings)
+                        })
+                    
+                    room_df = pd.DataFrame(room_data)
+                    st.dataframe(room_df, use_container_width=True)
         
-        with col_main:
-            st.subheader("Interactive 2D Floor Plan")
+        else:
+            # Legacy visualization mode
+            col_main, col_layers = st.columns([4, 1])
+            
+            with col_main:
+                st.subheader("Interactive 2D Floor Plan")
             
             # Visualization controls
             view_col1, view_col2, view_col3 = st.columns(3)
