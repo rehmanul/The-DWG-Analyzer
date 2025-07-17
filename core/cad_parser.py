@@ -319,35 +319,67 @@ def classify_entity_type(entity, geometry_data) -> str:
     color = geometry_data['color']
     area = geometry_data['area']
     
+    # Enhanced color detection - check entity attributes more thoroughly
+    entity_color = color
+    if hasattr(entity, 'dxf'):
+        # Try to get true color or color index
+        if hasattr(entity.dxf, 'true_color'):
+            true_color = entity.dxf.true_color
+            # Convert true color to basic color index for classification
+            if true_color is not None:
+                if (true_color >> 16) & 0xFF > 200 and (true_color >> 8) & 0xFF < 100:  # Reddish
+                    entity_color = 1
+                elif (true_color >> 8) & 0xFF > 200 and (true_color >> 16) & 0xFF < 100:  # Greenish 
+                    entity_color = 3
+                elif true_color & 0xFF > 200 and (true_color >> 16) & 0xFF < 100:  # Blueish
+                    entity_color = 5
+        
+        # Also check color_rgb if available
+        if hasattr(entity.dxf, 'color_rgb'):
+            rgb = entity.dxf.color_rgb
+            if rgb:
+                r, g, b = (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF
+                if r > 200 and g < 100 and b < 100:  # Red dominant
+                    entity_color = 1
+                elif b > 200 and r < 100 and g < 150:  # Blue dominant  
+                    entity_color = 5
+    
     # CLIENT REQUIREMENTS COLOR CODING:
     # Blue (5) = NO ENTREE (restricted areas)
     # Red (1) = ENTREE/SORTIE (entrances/exits)  
     # Black/Gray (7,8,0) = MUR (walls)
     # White/Default = Open spaces for îlots
     
-    # Priority 1: Color-based classification (CLIENT SPEC)
-    if color == 5:  # Blue = NO ENTREE (restricted)
+    # Priority 1: Enhanced color-based classification
+    if entity_color == 5 or entity_color == 4:  # Blue/Cyan = NO ENTREE (restricted)
         return 'restricted'
-    elif color == 1:  # Red = ENTREE/SORTIE (entrances)
+    elif entity_color == 1 or entity_color == 12:  # Red = ENTREE/SORTIE (entrances)
         return 'entrance'
-    elif color in [0, 7, 8]:  # Black/Gray = MUR (walls)
+    elif entity_color in [0, 7, 8, 9, 256]:  # Black/Gray/White = MUR (walls)
         return 'wall'
     
     # Priority 2: Layer name classification (backup)
-    if any(wall_keyword in layer for wall_keyword in ['WALL', 'MUR', 'STRUCTURE', 'OUTLINE']):
+    if any(wall_keyword in layer for wall_keyword in ['WALL', 'MUR', 'STRUCTURE', 'OUTLINE', '0']):
         return 'wall'
-    elif any(restricted_keyword in layer for restricted_keyword in ['RESTRICTED', 'STAIR', 'ELEVATOR', 'EQUIPMENT', 'NO_ENTREE']):
+    elif any(restricted_keyword in layer for restricted_keyword in ['RESTRICTED', 'STAIR', 'ELEVATOR', 'EQUIPMENT', 'NO_ENTREE', 'BLUE']):
         return 'restricted'
-    elif any(entrance_keyword in layer for entrance_keyword in ['DOOR', 'ENTRANCE', 'OPENING', 'PORTE', 'ENTREE', 'SORTIE']):
+    elif any(entrance_keyword in layer for entrance_keyword in ['DOOR', 'ENTRANCE', 'OPENING', 'PORTE', 'ENTREE', 'SORTIE', 'RED']):
         return 'entrance'
     
-    # Priority 3: Additional color checks
-    elif color in [2, 3, 4]:  # Green/yellow could be entrances
+    # Priority 3: Area-based classification for small features
+    if area < 2:  # Very small areas likely entrances/openings
         return 'entrance'
-    elif color == 6:  # Cyan typically restricted
+    elif area > 100:  # Large areas likely walls or restricted zones
+        # Check if it's a large solid area (could be restricted zone)
+        if entity_color in [2, 3, 4, 5, 6]:  # Any color other than black/gray
+            return 'restricted'
+        return 'wall'
+    
+    # Priority 4: Additional color checks  
+    elif entity_color in [2, 3]:  # Green/yellow could be entrances
+        return 'entrance'
+    elif entity_color == 6:  # Cyan typically restricted
         return 'restricted'
-    elif area < 5:  # Small areas likely entrances
-        return 'entrance'
     
     # Default: treat as wall (safe default to prevent îlot placement)
     return 'wall'

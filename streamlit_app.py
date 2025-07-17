@@ -119,7 +119,7 @@ def get_processors():
 
 def process_dxf_file(file_content: bytes, filename: str) -> FloorPlan:
     """Process DXF file with enhanced CAD parser - handles all entity types"""
-    
+
     # Save uploaded file temporarily
     temp_path = f"/tmp/{filename}"
     with open(temp_path, 'wb') as f:
@@ -128,42 +128,42 @@ def process_dxf_file(file_content: bytes, filename: str) -> FloorPlan:
     try:
         # Import and use the enhanced CAD parser
         from core.cad_parser import parse_dxf
-        
+
         # Parse with enhanced parser that handles POLYLINE, LWPOLYLINE, etc.
         walls, restricted, entrances = parse_dxf(temp_path)
-        
+
         logger.info(f"Enhanced DXF parsing: {len(walls)} walls, {len(restricted)} restricted, {len(entrances)} entrances")
-        
+
         # Create valid spaces by finding the area NOT covered by walls and entrances
         processed_spaces = []
-        
+
         # Get overall bounds
         all_bounds = []
         for wall in walls:
             all_bounds.extend(wall.bounds)
         for entrance in entrances:
             all_bounds.extend(entrance.bounds)
-        
+
         if all_bounds:
             min_x = min(all_bounds[::4])
             min_y = min(all_bounds[1::4])
             max_x = max(all_bounds[2::4])
             max_y = max(all_bounds[3::4])
-            
+
             # Create the overall floor plan area
             from shapely.geometry import Polygon, box
             from shapely.ops import unary_union
-            
+
             # Create overall bounding box
             overall_area = box(min_x, min_y, max_x, max_y)
-            
+
             # Subtract walls and entrances to get open spaces
             obstacles = walls + entrances + restricted
             if obstacles:
                 obstacle_union = unary_union(obstacles)
                 # Get the remaining open space
                 open_space = overall_area.difference(obstacle_union)
-                
+
                 # Handle MultiPolygon case
                 if open_space.geom_type == 'MultiPolygon':
                     for poly in open_space.geoms:
@@ -183,11 +183,11 @@ def process_dxf_file(file_content: bytes, filename: str) -> FloorPlan:
                         'bounds': open_space.bounds,
                         'geometry': open_space
                     })
-        
+
         # If no valid spaces found, create a warning
         if not processed_spaces:
             logger.warning("No open spaces found after removing walls and entrances")
-        
+
         # Process walls for visualization
         wall_data = []
         for wall in walls:
@@ -200,7 +200,7 @@ def process_dxf_file(file_content: bytes, filename: str) -> FloorPlan:
                 })
             except:
                 continue
-        
+
         # Process restricted areas
         restricted_data = []
         for restricted_area in restricted:
@@ -213,7 +213,7 @@ def process_dxf_file(file_content: bytes, filename: str) -> FloorPlan:
                 })
             except:
                 continue
-        
+
         # Process entrances
         entrance_data = []
         for entrance in entrances:
@@ -285,7 +285,7 @@ def process_image_file(image: Image.Image) -> FloorPlan:
 def process_pdf_file(file_content: bytes, filename: str) -> FloorPlan:
     """Process PDF file with PyMuPDF and image processing"""
     import fitz  # PyMuPDF
-    
+
     # Save uploaded file temporarily
     temp_path = f"/tmp/{filename}"
     with open(temp_path, 'wb') as f:
@@ -294,30 +294,30 @@ def process_pdf_file(file_content: bytes, filename: str) -> FloorPlan:
     try:
         # Open PDF with PyMuPDF
         doc = fitz.open(temp_path)
-        
+
         # Process each page
         processed_spaces = []
         all_walls = []
         all_restricted = []
         all_entrances = []
-        
+
         for page_num in range(len(doc)):
             page = doc[page_num]
-            
+
             # Convert page to image
             pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x resolution
             img_data = pix.tobytes("png")
-            
+
             # Process with image processing
             image = Image.open(io.BytesIO(img_data))
             floor_plan_from_image = process_image_file(image)
-            
+
             # Accumulate results
             processed_spaces.extend(floor_plan_from_image.spaces)
             all_walls.extend(floor_plan_from_image.walls)
             all_restricted.extend(floor_plan_from_image.restricted_areas)
             all_entrances.extend(floor_plan_from_image.entrances)
-        
+
         floor_plan = FloorPlan(
             spaces=processed_spaces,
             walls=all_walls,
@@ -328,10 +328,10 @@ def process_pdf_file(file_content: bytes, filename: str) -> FloorPlan:
             metadata={'format': 'pdf', 'filename': filename, 'pages': len(doc)},
             confidence_score=0.85
         )
-        
+
         logger.info(f"Successfully processed PDF: {len(floor_plan.spaces)} spaces from {len(doc)} pages")
         return floor_plan
-        
+
     except Exception as e:
         logger.error(f"PDF processing error: {e}")
         raise
@@ -344,7 +344,7 @@ def process_pdf_file(file_content: bytes, filename: str) -> FloorPlan:
 
 def process_dwg_file(file_content: bytes, filename: str) -> FloorPlan:
     """Process DWG file by converting to DXF first"""
-    
+
     # Save uploaded file temporarily
     temp_path = f"/tmp/{filename}"
     with open(temp_path, 'wb') as f:
@@ -355,30 +355,30 @@ def process_dwg_file(file_content: bytes, filename: str) -> FloorPlan:
         try:
             import ezdxf
             doc = ezdxf.readfile(temp_path)
-            
+
             # Convert to DXF format internally
             dxf_temp_path = f"/tmp/{filename}.dxf"
             doc.saveas(dxf_temp_path)
-            
+
             # Process as DXF
             with open(dxf_temp_path, 'rb') as f:
                 dxf_content = f.read()
-            
+
             floor_plan = process_dxf_file(dxf_content, f"{filename}.dxf")
             floor_plan.metadata['original_format'] = 'dwg'
-            
+
             # Cleanup
             try:
                 import os
                 os.remove(dxf_temp_path)
             except:
                 pass
-            
+
             return floor_plan
-            
+
         except Exception as e:
             logger.warning(f"Direct DWG processing failed: {e}")
-            
+
             # Fallback: Create a basic floor plan structure
             # This is a temporary solution - in production, you'd use a DWG converter
             floor_plan = FloorPlan(
@@ -396,10 +396,10 @@ def process_dwg_file(file_content: bytes, filename: str) -> FloorPlan:
                 metadata={'format': 'dwg', 'filename': filename, 'note': 'Basic parsing - full DWG support requires specialized converter'},
                 confidence_score=0.60
             )
-            
+
             logger.info(f"DWG file processed with basic parser: {len(floor_plan.spaces)} spaces")
             return floor_plan
-            
+
     except Exception as e:
         logger.error(f"DWG processing error: {e}")
         raise
@@ -438,7 +438,7 @@ def calculate_ilot_placement(floor_plan: FloorPlan, config: Dict) -> FloorPlan:
 
     # Create forbidden areas union (walls, entrances, and restricted areas)
     forbidden_polygons = []
-    
+
     # Add walls as forbidden areas
     for wall in floor_plan.walls:
         try:
@@ -446,7 +446,7 @@ def calculate_ilot_placement(floor_plan: FloorPlan, config: Dict) -> FloorPlan:
                 forbidden_polygons.append(Polygon(wall['geometry']))
         except:
             continue
-    
+
     # Add entrances as forbidden areas
     for entrance in floor_plan.entrances:
         try:
@@ -454,7 +454,7 @@ def calculate_ilot_placement(floor_plan: FloorPlan, config: Dict) -> FloorPlan:
                 forbidden_polygons.append(Polygon(entrance['geometry']))
         except:
             continue
-    
+
     # Add restricted areas as forbidden areas
     for restricted in floor_plan.restricted_areas:
         try:
@@ -538,31 +538,37 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 showlegend=False
             ))
 
-    # Draw restricted areas
-    for restricted in floor_plan.restricted_areas:
+    # Draw restricted areas (Blue zones - NO ENTREE)
+    for i, restricted in enumerate(floor_plan.restricted_areas):
         points = restricted.get('geometry', [])
         if len(points) >= 3:
-            x_coords = [p[0] for p in points] + [points[0][0]]
-            y_coords = [p[1] for p in points] + [points[0][1]]
+            x_coords = [p[0] for p in points]
+            y_coords = [p[1] for p in points]
 
             fig.add_trace(go.Scatter(
-                x=x_coords, y=y_coords,
-                fill='toself', fillcolor='rgba(52,152,219,0.8)',
+                x=x_coords,
+                y=y_coords,
+                mode='lines',
+                fill='toself',
+                fillcolor='rgba(100, 150, 255, 0.8)',  # Solid blue like reference
                 line=dict(color='#3498DB', width=2),
-                name='NO ENTREE (Blue)',
-                hovertemplate="Restricted Area - No îlots allowed<extra></extra>"
+                name='NO ENTREE' if i == 0 else None,
+                showlegend=i == 0,
+                hoverinfo='text',
+                hovertext='NO ENTREE - Restricted Area'
             ))
 
-    # Draw entrances
-    for entrance in floor_plan.entrances:
+    # Draw entrances (Red zones - ENTREE/SORTIE)
+    for i, entrance in enumerate(floor_plan.entrances):
         if 'location' in entrance:
             fig.add_trace(go.Scatter(
                 x=[entrance['location'][0]],
                 y=[entrance['location'][1]],
                 mode='markers',
                 marker=dict(color='#E74C3C', size=12, symbol='square'),
-                name='ENTREE/SORTIE (Red)',
-                hovertemplate="Entrance/Exit - No îlots allowed<extra></extra>"
+                name='ENTRÉE/SORTIE' if i == 0 else None,
+                showlegend=i == 0,
+                hovertemplate="ENTRÉE/SORTIE - Entrance/Exit<extra></extra>"
             ))
         elif 'geometry' in entrance:
             points = entrance['geometry']
@@ -572,9 +578,12 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 fig.add_trace(go.Scatter(
                     x=x_coords, y=y_coords,
                     mode='lines',
+                    fill='toself' if len(points) > 2 else None,
+                    fillcolor='rgba(231, 76, 60, 0.8)' if len(points) > 2 else None,  # Solid red like reference
                     line=dict(color='#E74C3C', width=4),
-                    name='ENTREE/SORTIE (Red)',
-                    hovertemplate="Entrance/Exit - No îlots allowed<extra></extra>"
+                    name='ENTRÉE/SORTIE' if i == 0 else None,
+                    showlegend=i == 0,
+                    hovertemplate="ENTRÉE/SORTIE - Entrance/Exit<extra></extra>"
                 ))
 
     if view_type in ['ilots', 'corridors']:
@@ -756,7 +765,7 @@ def main():
                 elif file_extension == 'pdf':
                     st.write("📄 Processing PDF with advanced extraction...")
                     floor_plan = process_pdf_file(file_content, uploaded_file.name)
-                    
+
                 elif file_extension == 'dwg':
                     st.write("🏗️ Processing DWG with enterprise converter...")
                     floor_plan = process_dwg_file(file_content, uploaded_file.name)
@@ -823,7 +832,8 @@ def main():
         with tab3:
             st.subheader("Corridor Network System")
             fig3 = create_visualization(floor_plan, "corridors")
-            st.plotly_chart(fig3, use_container_width=True)
+            st```python
+.plotly_chart(fig3, use_container_width=True)
 
             # Corridor metrics
             if floor_plan.corridors:
