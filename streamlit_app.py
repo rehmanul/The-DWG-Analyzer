@@ -160,7 +160,7 @@ def load_file_with_intelligence(uploaded_file):
             progress_bar.progress(0.2)
             
             # Extract floor plan with exact geometric accuracy
-            floor_plan = processor.process_cad_file(tmp_path)</old_str>
+            floor_plan = processor.process_cad_file(tmp_path)
             
             if not floor_plan.walls and not floor_plan.rooms:
                 st.error("No valid floor plan elements detected in the file")
@@ -1728,7 +1728,7 @@ if st.session_state.available_zones or st.session_state.walls:
                 if st.session_state.get('generate_layout'):
                     with st.spinner("🎯 Generating pixel-perfect îlot placement..."):
                         # Use pixel-perfect placement engine
-                        placement_engine = pixel_data['placement_engine']</old_str>
+                        placement_engine = pixel_data['placement_engine']
                         
                         # Configure placement parameters
                         config = {
@@ -1819,61 +1819,6 @@ if st.session_state.available_zones or st.session_state.walls:
                         ilots=st.session_state.ilots,
                         corridors=st.session_state.corridors,
                         bounds=floor_plan.bounds
-                    )
-                            
-                            # Configure corridor system
-                            corridor_config = CorridorConfig(
-                                width=corridor_width,
-                                min_width=1.2,
-                                max_width=3.0,
-                                style=corridor_type.lower(),
-                                junction_style=junction_style.lower().replace(' ', '_').replace('°', ''),
-                                connect_to_entrances=True,
-                                avoid_restricted=True,
-                                minimize_total_length=True,
-                                maximize_accessibility=True,
-                                pathfinding_algorithm="A*"
-                            )
-                            
-                            # Initialize corridor system
-                            corridor_system = IntelligentCorridorSystem(corridor_config)
-                            
-                            # Generate corridor network
-                            corridor_network = corridor_system.generate_corridor_network(
-                                st.session_state.ilots,
-                                st.session_state.walls,
-                                st.session_state.restricted,
-                                st.session_state.entrances,
-                                st.session_state.available_zones
-                            )
-                            
-                            # Convert to legacy format
-                            legacy_corridors = corridor_system.export_to_legacy_format()
-                            st.session_state.corridors = legacy_corridors
-                            st.session_state.corridor_network = corridor_network
-                            st.session_state.corridor_system = corridor_system
-                            
-                            # Display corridor statistics
-                            stats = corridor_system.get_network_statistics()
-                            st.success(f"""
-                            🛤️ **Intelligent Corridor Network Complete**
-                            - **Total Segments**: {stats.get('total_segments', 0)}
-                            - **Total Length**: {stats.get('total_length', 0):.1f}m
-                            - **Network Area**: {stats.get('network_area', 0):.1f}m²
-                            - **Connectivity Score**: {stats.get('connectivity_score', 0):.1f}%
-                            - **Accessibility Score**: {stats.get('accessibility_score', 0):.1f}%
-                            """)
-                            
-                            st.info("✨ Advanced pathfinding: A* Algorithm → Network Optimization → Junction Enhancement")
-                    
-                    # Render complete floor plan
-                    complete_fig = renderer.render_floor_plan_with_corridors(
-                        walls=geometric_analysis['walls'],
-                        restricted_areas=geometric_analysis['restricted_areas'],
-                        entrances=geometric_analysis['entrances'],
-                        ilots=st.session_state.ilots,
-                        corridors=st.session_state.corridors,
-                        bounds=best_plan.bounds
                     )
                     
                     st.plotly_chart(complete_fig, use_container_width=True, config=renderer.config)
