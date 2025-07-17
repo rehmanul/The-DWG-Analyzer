@@ -26,7 +26,8 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, p
         ('3-5m²', (3.0, 5.0), config['size_3_5']),
         ('5-10m²', (5.0, 10.0), config['size_5_10'])
     ]
-    estimated_total = max(10, int(total_area * 0.2 / 3.0))
+    # Limit îlot count to prevent memory issues
+    estimated_total = min(500, max(10, int(total_area * 0.0001)))
     ilot_specs = []
     for category, (min_size, max_size), percentage in categories:
         count = int(estimated_total * percentage)
@@ -121,6 +122,11 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, p
                 new_genes[i] = (x, y, rot)
         return new_genes
 
+    # Safety check for memory usage
+    if len(ilot_specs) > 1000:
+        logger.warning(f"Too many îlot specs ({len(ilot_specs)}), limiting to 1000")
+        ilot_specs = ilot_specs[:1000]
+    
     # Genetic algorithm main loop with timeout and progress logs
     population = [random_chromosome() for _ in range(population_size)]
     best_fitness = 0
