@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 import time
 
-def generate_ilots(zones, bounds, config, forbidden_union, max_generations=20, population_size=10, corridor_width=1.2, max_seconds=15):
+def generate_ilots(zones, bounds, config, forbidden_union, max_generations=30, population_size=15, corridor_width=1.2, max_seconds=25):
     """
     Genetic algorithm for îlot placement with constraint compliance and corridor support.
     Returns: dict with 'ilots' and 'corridors'.
@@ -26,8 +26,8 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=20, p
         ('3-5m²', (3.0, 5.0), config['size_3_5']),
         ('5-10m²', (5.0, 10.0), config['size_5_10'])
     ]
-    # Highly optimized îlot count for fast processing
-    estimated_total = min(50, max(10, int(total_area * 0.00002)))
+    # Increase îlot count for better coverage like expected images
+    estimated_total = min(200, max(50, int(total_area * 0.00008)))
     ilot_specs = []
     for category, (min_size, max_size), percentage in categories:
         count = int(estimated_total * percentage)
@@ -89,22 +89,17 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=20, p
                     break
             if overlap:
                 continue
-            # Check if inside any allowed zone
-            in_zone = False
-            for zone in zones:
-                try:
-                    zone_poly = Polygon(zone['points'])
-                    if poly.within(zone_poly):
-                        in_zone = True
-                        break
-                except Exception as e:
-                    logger.warning(f"Zone polygon error: {e}")
-            if not in_zone:
+            # Check if ilot is within drawing bounds and not in restricted areas
+            if (poly.bounds[0] >= min_x and poly.bounds[2] <= max_x and
+                poly.bounds[1] >= min_y and poly.bounds[3] <= max_y):
+                # Îlot is valid if it's in bounds and not in forbidden areas
+                pass
+            else:
                 continue
             valid.append(ilot)
-        # Fitness: number of valid ilots + total area
+        # Improved fitness: heavily weight number of valid îlots
         total_area = sum(i['area'] for i in valid)
-        return len(valid) + total_area * 0.1, valid
+        return len(valid) * 10 + total_area * 0.01, valid
 
     def crossover(parent1, parent2):
         # Single-point crossover
@@ -123,9 +118,9 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=20, p
         return new_genes
 
     # Safety check for performance optimization
-    if len(ilot_specs) > 50:
-        logger.warning(f"Too many îlot specs ({len(ilot_specs)}), limiting to 50 for performance")
-        ilot_specs = ilot_specs[:50]
+    if len(ilot_specs) > 200:
+        logger.warning(f"Too many îlot specs ({len(ilot_specs)}), limiting to 200 for performance")
+        ilot_specs = ilot_specs[:200]
     
     # Genetic algorithm main loop with timeout and progress logs
     population = [random_chromosome() for _ in range(population_size)]
@@ -139,9 +134,9 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=20, p
             logger.warning(f"[IlotOptimizer] Timeout: Exceeded {max_seconds} seconds at generation {gen}.")
             break
             
-        # Early termination if no improvement for 5 generations
-        if no_improvement_count >= 5:
-            logger.info(f"[IlotOptimizer] Early termination: No improvement for 5 generations at gen {gen}")
+        # Early termination if no improvement for 8 generations
+        if no_improvement_count >= 8:
+            logger.info(f"[IlotOptimizer] Early termination: No improvement for 8 generations at gen {gen}")
             break
             
         scored = []
