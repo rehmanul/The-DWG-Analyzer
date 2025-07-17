@@ -54,3 +54,4 @@ scipy
 shapely
 streamlit
 streamlit
+networkx

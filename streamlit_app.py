@@ -1712,13 +1712,13 @@ if st.session_state.available_zones or st.session_state.walls:
                 # Display metrics
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("Walls", len(geometric_analysis['walls']), "Thick gray lines")
+                    st.metric("Walls", len(floor_plan.walls), "Thick gray lines")
                 with col2:
-                    st.metric("Restricted", len(geometric_analysis['restricted_areas']), "Blue zones")
+                    st.metric("Restricted", len(floor_plan.restricted_areas), "Blue zones")
                 with col3:
-                    st.metric("Entrances", len(geometric_analysis['entrances']), "Red zones")
+                    st.metric("Entrances", len(floor_plan.entrances), "Red zones")
                 with col4:
-                    st.metric("Confidence", f"{best_plan.confidence_score:.1%}", "Professional quality")
+                    st.metric("Confidence", f"{floor_plan.confidence_score:.1%}", "Professional quality")
             
             with vis_tab2:
                 st.subheader("Floor Plan with Îlots - Pixel-Perfect Placement")
