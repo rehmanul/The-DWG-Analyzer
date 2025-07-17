@@ -27,11 +27,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Professional styling
+# Professional styling with light theme optimization
 st.markdown("""
 <style>
     .main {
         padding: 1rem;
+        background-color: #ffffff;
+        color: #262730;
+    }
+    .stApp {
+        background-color: #ffffff;
     }
     .stButton > button {
         background-color: #2E8B57;
@@ -50,6 +55,7 @@ st.markdown("""
         border-radius: 4px;
         border-left: 4px solid #2E8B57;
         margin: 0.5rem 0;
+        color: #262730;
     }
     .status-success {
         color: #28a745;
@@ -66,10 +72,28 @@ st.markdown("""
         background-color: #f1f3f4;
         border-radius: 4px 4px 0 0;
         padding: 10px 16px;
+        color: #262730;
     }
     .stTabs [aria-selected="true"] {
         background-color: #2E8B57;
         color: white;
+    }
+    /* Force light theme text colors */
+    .stMarkdown, .stText, p, h1, h2, h3, h4, h5, h6, div {
+        color: #262730 !important;
+    }
+    /* Table styling for better visibility */
+    .stTable, table {
+        background-color: #ffffff;
+        color: #262730;
+    }
+    .stTable th, .stTable td {
+        color: #262730 !important;
+        background-color: #ffffff !important;
+    }
+    /* Status and metric text colors */
+    .metric-container h2, .metric-container h4 {
+        color: #262730 !important;
     }
 </style>
 """, unsafe_allow_html=True)
