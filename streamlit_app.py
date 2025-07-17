@@ -507,10 +507,10 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
 
             fig.add_trace(go.Scatter(
                 x=x_coords, y=y_coords,
-                fill='toself', fillcolor='rgba(240,240,240,0.3)',
-                line=dict(color='#666666', width=2),
-                name=f"Space {i+1}",
-                hovertemplate=f"Area: {space.get('area', 0):.1f} m²<extra></extra>"
+                fill='toself', fillcolor='rgba(255,255,255,0.9)',
+                line=dict(color='#CCCCCC', width=1),
+                name=f"Open Space {i+1}",
+                hovertemplate=f"Area: {space.get('area', 0):.1f} m²<br>Available for îlots<extra></extra>"
             ))
 
     # Draw walls
@@ -522,9 +522,10 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 y_coords = [p[1] for p in points] + [points[0][1]]
                 fig.add_trace(go.Scatter(
                     x=x_coords, y=y_coords,
-                    fill='toself', fillcolor='rgba(44,62,80,0.8)',
+                    fill='toself', fillcolor='rgba(84,84,84,0.9)',
                     line=dict(color='#2C3E50', width=2),
-                    name='Walls',
+                    name='MUR (Gray)',
+                    hovertemplate="Wall - No îlots allowed<extra></extra>",
                     showlegend=False
                 ))
         elif 'start_point' in wall and 'end_point' in wall:
@@ -546,9 +547,10 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
 
             fig.add_trace(go.Scatter(
                 x=x_coords, y=y_coords,
-                fill='toself', fillcolor='rgba(255,87,87,0.4)',
-                line=dict(color='#E74C3C', width=2),
-                name='Restricted Areas'
+                fill='toself', fillcolor='rgba(52,152,219,0.8)',
+                line=dict(color='#3498DB', width=2),
+                name='NO ENTREE (Blue)',
+                hovertemplate="Restricted Area - No îlots allowed<extra></extra>"
             ))
 
     # Draw entrances
@@ -558,9 +560,22 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
                 x=[entrance['location'][0]],
                 y=[entrance['location'][1]],
                 mode='markers',
-                marker=dict(color='#27AE60', size=12, symbol='square'),
-                name='Entrances'
+                marker=dict(color='#E74C3C', size=12, symbol='square'),
+                name='ENTREE/SORTIE (Red)',
+                hovertemplate="Entrance/Exit - No îlots allowed<extra></extra>"
             ))
+        elif 'geometry' in entrance:
+            points = entrance['geometry']
+            if len(points) >= 2:
+                x_coords = [p[0] for p in points]
+                y_coords = [p[1] for p in points]
+                fig.add_trace(go.Scatter(
+                    x=x_coords, y=y_coords,
+                    mode='lines',
+                    line=dict(color='#E74C3C', width=4),
+                    name='ENTREE/SORTIE (Red)',
+                    hovertemplate="Entrance/Exit - No îlots allowed<extra></extra>"
+                ))
 
     if view_type in ['ilots', 'corridors']:
         # Draw îlots
@@ -571,8 +586,8 @@ def create_visualization(floor_plan: FloorPlan, view_type: str) -> go.Figure:
 
             fig.add_trace(go.Scatter(
                 x=x_coords, y=y_coords,
-                fill='toself', fillcolor=ilot.get('color', 'rgba(52,152,219,0.6)') ,
-                line=dict(color='#2980B9', width=1),
+                fill='toself', fillcolor='rgba(46,204,113,0.8)',
+                line=dict(color='#27AE60', width=2),
                 name=f"Îlot ({ilot.get('category', 'Unknown')})",
                 hovertemplate=f"Area: {ilot.get('area', 0):.1f} m²<br>Category: {ilot.get('category', 'Unknown')}<extra></extra>"
             ))

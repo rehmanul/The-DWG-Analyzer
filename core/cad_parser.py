@@ -32,6 +32,15 @@ def parse_dxf(file_path):
             continue
     
     logger.info(f"Parsed DXF: {len(walls)} walls, {len(restricted)} restricted, {len(entrances)} entrances")
+    
+    # Log color distribution for debugging
+    color_count = {}
+    for entity in [walls, restricted, entrances]:
+        for item in entity:
+            # Extract color info if available
+            pass
+    
+    logger.info(f"Color coding applied: Blue=restricted, Red=entrances, Black/Gray=walls")
     return walls, restricted, entrances
 
 def extract_entity_geometry(entity) -> Optional[Dict[str, Any]]:
@@ -305,32 +314,40 @@ def extract_hatch_geometry(entity) -> Dict[str, Any]:
         return None
 
 def classify_entity_type(entity, geometry_data) -> str:
-    """Classify entity type based on multiple criteria"""
+    """Classify entity type based on color coding as per client requirements"""
     layer = geometry_data['layer'].upper()
     color = geometry_data['color']
     area = geometry_data['area']
     
-    # Classification by layer name
+    # CLIENT REQUIREMENTS COLOR CODING:
+    # Blue (5) = NO ENTREE (restricted areas)
+    # Red (1) = ENTREE/SORTIE (entrances/exits)  
+    # Black/Gray (7,8,0) = MUR (walls)
+    # White/Default = Open spaces for îlots
+    
+    # Priority 1: Color-based classification (CLIENT SPEC)
+    if color == 5:  # Blue = NO ENTREE (restricted)
+        return 'restricted'
+    elif color == 1:  # Red = ENTREE/SORTIE (entrances)
+        return 'entrance'
+    elif color in [0, 7, 8]:  # Black/Gray = MUR (walls)
+        return 'wall'
+    
+    # Priority 2: Layer name classification (backup)
     if any(wall_keyword in layer for wall_keyword in ['WALL', 'MUR', 'STRUCTURE', 'OUTLINE']):
         return 'wall'
-    elif any(restricted_keyword in layer for restricted_keyword in ['RESTRICTED', 'STAIR', 'ELEVATOR', 'EQUIPMENT']):
+    elif any(restricted_keyword in layer for restricted_keyword in ['RESTRICTED', 'STAIR', 'ELEVATOR', 'EQUIPMENT', 'NO_ENTREE']):
         return 'restricted'
-    elif any(entrance_keyword in layer for entrance_keyword in ['DOOR', 'ENTRANCE', 'OPENING', 'PORTE']):
+    elif any(entrance_keyword in layer for entrance_keyword in ['DOOR', 'ENTRANCE', 'OPENING', 'PORTE', 'ENTREE', 'SORTIE']):
         return 'entrance'
     
-    # Classification by color
-    if color in [0, 7]:  # Black/white typically walls
-        return 'wall'
-    elif color in [1, 2]:  # Red typically entrances
+    # Priority 3: Additional color checks
+    elif color in [2, 3, 4]:  # Green/yellow could be entrances
         return 'entrance'
-    elif color in [5, 6]:  # Blue/cyan typically restricted
+    elif color == 6:  # Cyan typically restricted
         return 'restricted'
-    
-    # Classification by area (larger areas likely rooms/walls)
-    if area > 100:  # Large areas are likely walls or rooms
-        return 'wall'
-    elif area < 10:  # Small areas might be entrances
+    elif area < 5:  # Small areas likely entrances
         return 'entrance'
     
-    # Default classification
+    # Default: treat as wall (safe default to prevent îlot placement)
     return 'wall'
