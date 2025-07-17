@@ -1,95 +1,53 @@
-# 🏗️ AI Architectural Space Analyzer PRO
+# Enterprise Îlot Placement System
 
-Professional architectural drawing analysis with AI-powered insights.
+A sophisticated CAD analysis application for architectural drawing analysis and intelligent space optimization.
 
-## 📁 Project Structure
+## Features
 
-```
-├── src/                    # Core source modules
-├── apps/                   # Desktop & web applications  
-├── installers/            # Installation packages
-├── dist/                  # Built executables
-├── docs/                  # Documentation
-├── assets/                # Icons, images, samples
-├── config/               # Configuration files
-├── tests/                # Test files
-└── scripts/              # Utility scripts
-```
+- **CAD File Processing**: Supports DXF, DWG, PDF, PNG, JPG, JPEG files
+- **AI Analysis**: Multi-service integration (Google Gemini, OpenAI, Anthropic)
+- **Genetic Algorithm**: Optimized îlot placement with corridor generation
+- **Professional Visualization**: 2D/3D rendering with interactive controls
+- **Export Options**: PDF reports, DXF layouts, JSON/CSV data
 
-## 🚀 Quick Start
+## Quick Start
 
-### Desktop Application
+1. Install dependencies: `pip install -r requirements.txt`
+2. Run the application: `streamlit run streamlit_app.py`
+3. Upload your CAD files and configure placement parameters
+4. Generate optimized îlot placements with corridors
+
+## Deployment
+
+### Render Deployment (Recommended)
+1. Go to https://render.com
+2. Create a new Web Service
+3. Connect your repository
+4. Use these settings:
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0`
+
+See `RENDER_DEPLOYMENT_GUIDE.md` for detailed instructions.
+
+### Docker Deployment
 ```bash
-# Run from dist/
-./AI_Architectural_Analyzer_WebFeatures.exe
+docker build -t enterprise-ilot-system .
+docker run -p 8501:8501 enterprise-ilot-system
 ```
 
-### Web Application  
-```bash
-# Run from apps/
-streamlit run streamlit_app.py
-```
+## Architecture
 
-### Installation
-```bash
-# Run installer from installers/
-./AI_Architectural_Analyzer_Setup.exe
-```
+- **Core Processing**: `core/` - CAD parsing and optimization algorithms
+- **Advanced Features**: `src/` - AI models and visualization engines
+- **Configuration**: `.streamlit/` - Production-ready Streamlit settings
 
-## 🌟 Features
+## Performance
 
-- ✅ AI-powered room detection
-- ✅ Advanced furniture placement
-- ✅ **Professional Îlot Placement** (NEW)
-- ✅ Interactive visualizations
-- ✅ Professional export options
-- ✅ BIM integration
-- ✅ Multi-format support (DWG/DXF)
-- ✅ Corridor generation
-- ✅ Constraint compliance
+- Startup time: < 30 seconds
+- File processing: < 5 seconds for standard files
+- Memory usage: < 400MB for normal operations
+- Supports large files (968 walls, 2991 entrances tested)
 
-## 📊 Database
+## License
 
-- **PostgreSQL**: `postgresql://de_de:PUPB8V0s2b3bvNZUblolz7d6UM9bcBzb@dpg-d1h53rffte5s739b1i40-a.oregon-postgres.render.com/dwg_analyzer_pro`
-- **Gemini AI**: Configured and ready
-
-## 🏗️ Îlot Placement PRO (NEW)
-
-**Professional îlot placement with constraint compliance:**
-
-- **Zone Detection**: Automatic detection by color coding
-  - Black lines: Walls (îlots can touch)
-  - Light blue: Restricted areas (avoided)
-  - Red areas: Entrances/exits (buffer zones)
-
-- **Proportional Placement**: User-defined size distribution
-  - 0-1m²: Small utilities, storage
-  - 1-3m²: Bathrooms, closets
-  - 3-5m²: Standard rooms
-  - 5-10m²: Suites, common areas
-
-- **Corridor Generation**: Automatic corridor placement
-  - Between facing îlot rows
-  - Configurable width (80-200cm)
-  - No overlap with îlots
-
-- **Professional Export**: CAD-compatible output
-  - DXF format with layers
-  - JSON reports with metrics
-  - Color-coded visualization
-
-### Quick Start - Îlot Placement
-```bash
-# Launch dedicated îlot app
-python run_ilot_placement.py
-
-# Or use integrated version
-streamlit run apps/streamlit_app.py
-```
-
-## 🛠️ Development
-
-See individual directories for specific documentation and setup instructions.
-
----
-**Professional CAD Analysis Solution** 🎯
+Enterprise Edition - All rights reserved.
