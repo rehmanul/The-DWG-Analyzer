@@ -131,11 +131,11 @@ for key in ['walls', 'restricted', 'entrances', 'available_zones', 'ilots', 'cor
         st.session_state[key] = []
 
 def load_file_with_intelligence(uploaded_file):
-    """🧠 ULTRA-INTELLIGENT MULTI-FORMAT FILE ANALYSIS - PHASE 1 IMPLEMENTATION"""
+    """🧠 PIXEL-PERFECT CAD FILE ANALYSIS - FULL IMPLEMENTATION"""
     import tempfile
-    from src.ultra_cad_processor import UltraCADProcessor
-    from src.geometric_recognition_engine import GeometricRecognitionEngine
-    from src.pixel_perfect_renderer import PixelPerfectRenderer
+    from src.pixel_perfect_cad_processor import PixelPerfectCADProcessor
+    from src.pixel_perfect_renderer import PixelPerfectRenderer, RenderingStyle
+    from src.advanced_ilot_placement_engine import AdvancedIlotPlacementEngine
     
     file_type = uploaded_file.name.split('.')[-1].lower()
     
@@ -146,60 +146,69 @@ def load_file_with_intelligence(uploaded_file):
             tmp_path = tmp_file.name
         
         try:
-            # Initialize Ultra CAD Processor (Phase 1)
-            processor = UltraCADProcessor()
-            geometric_engine = GeometricRecognitionEngine()
+            # Initialize Pixel-Perfect CAD Processor
+            processor = PixelPerfectCADProcessor()
+            renderer = PixelPerfectRenderer(RenderingStyle(professional_mode=True))
+            placement_engine = AdvancedIlotPlacementEngine()
             
-            # Process CAD file with advanced algorithms
-            st.info("🚀 Processing with Ultra CAD Processor - Phase 1 Implementation")
+            # Process CAD file with pixel-perfect accuracy
+            st.info("🚀 Processing with Pixel-Perfect CAD Processor - Full Implementation")
             progress_bar = st.progress(0)
             status_text = st.empty()
             
-            status_text.text("Phase 1: Advanced CAD file processing...")
+            status_text.text("Step 1: Pixel-perfect CAD file processing...")
             progress_bar.progress(0.2)
             
-            # Extract floor plans with pixel-perfect accuracy
-            floor_plans = processor.process_cad_file(tmp_path, extract_all_sheets=True)
+            # Extract floor plan with exact geometric accuracy
+            floor_plan = processor.process_cad_file(tmp_path)</old_str>
             
-            if not floor_plans:
-                st.error("No valid floor plans detected in the file")
+            if not floor_plan.walls and not floor_plan.rooms:
+                st.error("No valid floor plan elements detected in the file")
                 return [], [], [], []
             
-            status_text.text("Phase 1: Geometric element recognition...")
+            status_text.text("Step 2: Element classification and validation...")
             progress_bar.progress(0.5)
             
-            # Get best floor plan and analyze geometry
-            best_plan = processor.get_best_floor_plan(floor_plans)
-            geometric_analysis = geometric_engine.analyze_floor_plan_geometry(best_plan.elements)
+            # Convert to legacy format for compatibility with existing UI
+            walls = [{'points': list(wall.geometry.coords), 'type': 'wall', 'color': wall.color} 
+                    for wall in floor_plan.walls]
             
-            status_text.text("Phase 1: Converting to application format...")
+            restricted = [{'points': list(area.geometry.exterior.coords), 'type': 'restricted', 'color': area.color} 
+                         for area in floor_plan.restricted_areas if hasattr(area.geometry, 'exterior')]
+            
+            entrances = [{'points': list(entrance.geometry.coords) if hasattr(entrance.geometry, 'coords') 
+                                   else list(entrance.geometry.exterior.coords), 
+                         'type': 'entrance', 'color': entrance.color} 
+                        for entrance in floor_plan.entrances]
+            
+            available = [{'points': list(room.geometry.exterior.coords), 'type': 'room', 'area': room.geometry.area} 
+                        for room in floor_plan.rooms if hasattr(room.geometry, 'exterior')]
+            
+            status_text.text("Step 3: Pixel-perfect rendering preparation...")
             progress_bar.progress(0.8)
             
-            # Convert to legacy format for compatibility
-            walls, restricted, entrances, available = convert_phase1_to_legacy_format(
-                geometric_analysis, best_plan
-            )
-            
             progress_bar.progress(1.0)
-            status_text.text("✅ Phase 1 processing complete!")
+            status_text.text("✅ Pixel-Perfect Processing Complete!")
             
-            # Display advanced analysis results
+            # Display comprehensive analysis results
             st.success(f"""
-            ✅ **Ultra CAD Processing Complete**
-            - **Floor Plans Detected**: {len(floor_plans)}
-            - **Confidence Score**: {best_plan.confidence_score:.2%}
-            - **Walls Detected**: {len(geometric_analysis['walls'])}
-            - **Rooms Identified**: {len(geometric_analysis['rooms'])}
-            - **Total Elements**: {best_plan.sheet_info.get('entity_count', 0)}
-            - **Processing Quality**: Pixel-Perfect Professional
+            ✅ **Pixel-Perfect CAD Processing Complete**
+            - **Format**: {floor_plan.drawing_info.get('format', 'Unknown')}
+            - **Scale**: 1:{floor_plan.scale}
+            - **Units**: {floor_plan.units}
+            - **Walls Detected**: {len(floor_plan.walls)}
+            - **Restricted Areas**: {len(floor_plan.restricted_areas)}
+            - **Entrances**: {len(floor_plan.entrances)}
+            - **Rooms**: {len(floor_plan.rooms)}
+            - **Processing Quality**: Pixel-Perfect Professional Grade
             """)
             
-            # Store advanced analysis in session state
-            st.session_state['phase1_analysis'] = {
-                'floor_plans': floor_plans,
-                'best_plan': best_plan,
-                'geometric_analysis': geometric_analysis,
-                'processor_metadata': processor.export_floor_plan_analysis(best_plan)
+            # Store pixel-perfect analysis in session state
+            st.session_state['pixel_perfect_analysis'] = {
+                'floor_plan': floor_plan,
+                'processor': processor,
+                'renderer': renderer,
+                'placement_engine': placement_engine
             }
             
             return walls, restricted, entrances, available
@@ -1669,37 +1678,33 @@ if st.session_state.available_zones or st.session_state.walls:
     tab1, tab2, tab3 = st.tabs(["2D Interactive View", "3D Visualization", "Analytics Dashboard"])
     
     with tab1:
-        # Phase 1 Implementation: Pixel-Perfect Professional Visualization
-        if 'phase1_analysis' in st.session_state:
-            st.success("🚀 **Phase 1 Ultra CAD Processing Active** - Pixel-Perfect Professional Mode")
+        # Pixel-Perfect Professional Visualization Implementation
+        if 'pixel_perfect_analysis' in st.session_state:
+            st.success("🚀 **Pixel-Perfect CAD Processing Active** - Professional Grade Implementation")
             
-            # Create visualization tabs for different phases
-            phase_tab1, phase_tab2, phase_tab3, phase_tab4 = st.tabs([
-                "📐 Empty Floor Plan", 
-                "🏪 With Îlots", 
-                "🛤️ With Corridors", 
-                "📊 Advanced Analysis"
+            # Create visualization tabs matching reference images
+            vis_tab1, vis_tab2, vis_tab3, vis_tab4 = st.tabs([
+                "📐 Empty Floor Plan (Image 1)", 
+                "🏪 With Îlots (Image 2)", 
+                "🛤️ With Corridors (Image 3)", 
+                "📊 Professional Analytics"
             ])
             
-            with phase_tab1:
-                st.subheader("Phase 2: Empty Floor Plan - Pixel Perfect")
-                st.info("Exact color matching: Gray walls, Blue restricted areas, Red entrances")
+            with vis_tab1:
+                st.subheader("Empty Floor Plan - Pixel-Perfect Rendering")
+                st.info("✨ **Exact Visual Matching**: Gray walls (MUR), Blue restricted areas (NO ENTREE), Red entrances (ENTRÉE/SORTIE)")
                 
-                # Initialize pixel-perfect renderer
-                from src.pixel_perfect_renderer import PixelPerfectRenderer, RenderingStyle
-                renderer = PixelPerfectRenderer(RenderingStyle(show_grid=True, show_measurements=True))
+                # Get pixel-perfect components
+                pixel_data = st.session_state['pixel_perfect_analysis']
+                floor_plan = pixel_data['floor_plan']
+                renderer = pixel_data['renderer']
                 
-                # Get processed data
-                phase1_data = st.session_state['phase1_analysis']
-                best_plan = phase1_data['best_plan']
-                geometric_analysis = phase1_data['geometric_analysis']
-                
-                # Render empty floor plan (Phase 2 implementation)
+                # Render empty floor plan matching reference Image 1
                 empty_plan_fig = renderer.render_empty_floor_plan(
-                    walls=geometric_analysis['walls'],
-                    restricted_areas=geometric_analysis['restricted_areas'],
-                    entrances=geometric_analysis['entrances'],
-                    bounds=best_plan.bounds
+                    walls=floor_plan.walls,
+                    restricted_areas=floor_plan.restricted_areas,
+                    entrances=floor_plan.entrances,
+                    bounds=floor_plan.bounds
                 )
                 
                 st.plotly_chart(empty_plan_fig, use_container_width=True, config=renderer.config)
@@ -1715,44 +1720,30 @@ if st.session_state.available_zones or st.session_state.walls:
                 with col4:
                     st.metric("Confidence", f"{best_plan.confidence_score:.1%}", "Professional quality")
             
-            with phase_tab2:
-                st.subheader("Phase 3: Floor Plan with Îlots - Professional Placement")
+            with vis_tab2:
+                st.subheader("Floor Plan with Îlots - Pixel-Perfect Placement")
+                st.info("✨ **Smart Placement**: Intelligent îlot distribution with exact area measurements")
                 
                 # Generate îlots if button clicked
                 if st.session_state.get('generate_layout'):
-                    with st.spinner("🧠 Generating optimal îlot placement with advanced algorithms..."):
-                        # Use advanced îlot engine (Phase 2 Implementation)
-                        from src.advanced_ilot_engine import AdvancedIlotEngine, IlotConfig
+                    with st.spinner("🎯 Generating pixel-perfect îlot placement..."):
+                        # Use pixel-perfect placement engine
+                        placement_engine = pixel_data['placement_engine']</old_str>
                         
-                        # Configure advanced îlot engine
-                        ilot_config = IlotConfig(
-                            min_size=0.5,
-                            max_size=10.0,
-                            min_spacing=ilot_spacing,
-                            shape_variety=True,
-                            allow_wall_contact=True,
-                            avoid_restricted=True,
-                            avoid_entrances=True,
-                            size_0_1_ratio=size_0_1,
-                            size_1_3_ratio=size_1_3,
-                            size_3_5_ratio=size_3_5,
-                            size_5_10_ratio=size_5_10
-                        )
+                        # Configure placement parameters
+                        config = {
+                            'size_0_1': size_0_1,
+                            'size_1_3': size_1_3,
+                            'size_3_5': size_3_5,
+                            'size_5_10': size_5_10
+                        }
                         
-                        # Initialize advanced engine
-                        ilot_engine = AdvancedIlotEngine(ilot_config)
-                        
-                        # Generate îlots with genetic algorithm
-                        advanced_ilots = ilot_engine.place_ilots_intelligently(
-                            st.session_state.available_zones,
-                            st.session_state.walls,
-                            st.session_state.restricted,
-                            st.session_state.entrances
-                        )
+                        # Generate îlots with pixel-perfect placement
+                        placement_result = placement_engine.place_ilots_intelligent(floor_plan, config)
                         
                         # Convert to legacy format for compatibility
                         legacy_ilots = []
-                        for ilot in advanced_ilots:
+                        for ilot in placement_result['ilots']:
                             legacy_ilots.append({
                                 'id': ilot.id,
                                 'x': ilot.x,
@@ -1762,41 +1753,43 @@ if st.session_state.available_zones or st.session_state.walls:
                                 'area': ilot.area,
                                 'polygon': ilot.polygon,
                                 'category': ilot.category,
-                                'color': ilot.color
+                                'color': ilot.color,
+                                'position': (ilot.x + ilot.width/2, ilot.y + ilot.height/2)
                             })
                         
                         st.session_state.ilots = legacy_ilots
-                        st.session_state.advanced_ilots = advanced_ilots
-                        st.session_state.ilot_engine = ilot_engine
+                        st.session_state.corridors = placement_result['corridors']
+                        st.session_state.placement_result = placement_result
                         st.session_state.generate_layout = False
                         
-                        # Display advanced statistics
-                        stats = ilot_engine.get_placement_statistics()
+                        # Display pixel-perfect placement statistics
+                        metrics = placement_result['metrics']
                         st.success(f"""
-                        🎯 **Advanced Îlot Placement Complete**
-                        - **Total Îlots**: {stats.get('total_ilots', 0)}
-                        - **Coverage Area**: {stats.get('total_area', 0):.1f}m²
-                        - **Space Utilization**: {stats.get('density', 0):.1%}
-                        - **Algorithm**: Genetic Algorithm with Spatial Optimization
+                        🎯 **Pixel-Perfect Îlot Placement Complete**
+                        - **Total Îlots Placed**: {placement_result['total_placed']}
+                        - **Placement Efficiency**: {placement_result['placement_efficiency']:.1%}
+                        - **Space Utilization**: {metrics['space_utilization']:.1%}
+                        - **Average Spacing**: {metrics['average_spacing']:.1f}m
+                        - **Quality**: Professional Grade Pixel-Perfect
                         """)
                         
                         # Category breakdown
-                        categories = stats.get('categories', {})
+                        categories = metrics.get('categories', {})
                         if categories:
-                            st.write("**Category Distribution:**")
+                            st.write("**Category Distribution (Exact Areas):**")
                             for category, data in categories.items():
-                                st.write(f"- {category}: {data['count']} units ({data['area']:.1f}m²)")
+                                st.write(f"- {category}: {data['count']} îlots ({data['area']:.1f}m²)")
                         
-                        st.info("✨ Advanced algorithms used: Genetic Algorithm → Spatial Optimization → Constraint Satisfaction")
+                        st.info("✨ **Algorithms Used**: Grid Optimization → Constraint Satisfaction → Pixel-Perfect Rendering")
                 
                 if st.session_state.get('ilots'):
-                    # Render with îlots
+                    # Render with îlots using pixel-perfect renderer
                     ilots_fig = renderer.render_floor_plan_with_ilots(
-                        walls=geometric_analysis['walls'],
-                        restricted_areas=geometric_analysis['restricted_areas'],
-                        entrances=geometric_analysis['entrances'],
+                        walls=floor_plan.walls,
+                        restricted_areas=floor_plan.restricted_areas,
+                        entrances=floor_plan.entrances,
                         ilots=st.session_state.ilots,
-                        bounds=best_plan.bounds
+                        bounds=floor_plan.bounds
                     )
                     
                     st.plotly_chart(ilots_fig, use_container_width=True, config=renderer.config)
@@ -1813,15 +1806,20 @@ if st.session_state.available_zones or st.session_state.walls:
                 else:
                     st.info("Click 'Generate Layout' in the sidebar to place îlots")
             
-            with phase_tab3:
-                st.subheader("Phase 4: Complete Floor Plan with Corridors")
+            with vis_tab3:
+                st.subheader("Complete Floor Plan with Corridors - Circulation Network")
+                st.info("✨ **Professional Layout**: Pink corridor network with precise measurements")
                 
-                if st.session_state.get('ilots'):
-                    # Generate corridors if needed
-                    if 'corridors' not in st.session_state or not st.session_state.corridors:
-                        with st.spinner("🛤️ Generating intelligent corridor network..."):
-                            # Use advanced corridor system (Phase 3 Implementation)
-                            from src.intelligent_corridor_system import IntelligentCorridorSystem, CorridorConfig
+                if st.session_state.get('ilots') and st.session_state.get('corridors'):
+                    # Render complete floor plan with corridors
+                    complete_fig = renderer.render_floor_plan_with_corridors(
+                        walls=floor_plan.walls,
+                        restricted_areas=floor_plan.restricted_areas,
+                        entrances=floor_plan.entrances,
+                        ilots=st.session_state.ilots,
+                        corridors=st.session_state.corridors,
+                        bounds=floor_plan.bounds
+                    )
                             
                             # Configure corridor system
                             corridor_config = CorridorConfig(

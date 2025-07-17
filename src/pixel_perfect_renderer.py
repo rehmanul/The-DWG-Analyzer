@@ -1,533 +1,476 @@
 """
-Pixel-Perfect Renderer - Professional architectural visualization
-Exact color matching and pixel-perfect rendering for floor plans
+Pixel-Perfect Renderer - Professional CAD Visualization
+Renders floor plans with exact visual specifications matching reference images
 """
 
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import numpy as np
-from typing import Dict, List, Tuple, Optional, Union
+from typing import List, Dict, Tuple, Any
 from dataclasses import dataclass
 import math
-from shapely.geometry import Polygon, Point, LineString
-import logging
-
-logger = logging.getLogger(__name__)
-
-# Professional color palette - exact hex values for pixel-perfect matching
-class ArchitecturalColors:
-    # Primary colors (from reference images)
-    WALL_GRAY = "#6B7280"          # Walls (MUR)
-    RESTRICTED_BLUE = "#3B82F6"    # Restricted areas (NO ENTREE)
-    ENTRANCE_RED = "#EF4444"       # Entrances/exits (ENTRÉE/SORTIE)
-    
-    # Secondary colors
-    ILOT_LIGHT_PINK = "#FEE2E2"    # Light pink for îlots
-    ILOT_BORDER_RED = "#DC2626"    # Red borders for îlots
-    CORRIDOR_PINK = "#FCE7F3"      # Pink corridors
-    CORRIDOR_BORDER = "#BE185D"    # Dark pink corridor borders
-    
-    # Background and UI
-    BACKGROUND_WHITE = "#FFFFFF"
-    GRID_LIGHT_GRAY = "#F3F4F6"
-    TEXT_DARK = "#1F2937"
-    MEASUREMENT_TEXT = "#374151"
-    
-    # Line weights (in pixels for web rendering)
-    WALL_THICKNESS = 3.0
-    BORDER_THICKNESS = 1.5
-    CORRIDOR_THICKNESS = 1.0
-    GRID_THICKNESS = 0.5
 
 @dataclass
 class RenderingStyle:
     """Professional rendering style configuration"""
+    wall_color: str = '#6B7280'
+    wall_width: float = 4.0
+    restricted_color: str = '#3B82F6'
+    restricted_opacity: float = 0.6
+    entrance_color: str = '#EF4444'
+    entrance_width: float = 3.0
+    ilot_outline_color: str = '#F87171'
+    ilot_fill_color: str = 'rgba(248, 113, 113, 0.3)'
+    corridor_color: str = '#FCA5A5'
+    corridor_opacity: float = 0.7
+    text_color: str = '#1F2937'
+    text_size: int = 12
+    background_color: str = '#FFFFFF'
+    grid_color: str = '#F3F4F6'
     show_grid: bool = True
     show_measurements: bool = True
     show_labels: bool = True
-    high_contrast: bool = False
-    print_ready: bool = False
-    scale_factor: float = 1.0
+    professional_mode: bool = True
 
 class PixelPerfectRenderer:
     """
-    Professional renderer for architectural floor plans
-    Produces pixel-perfect visualizations matching reference images
+    Professional renderer for pixel-perfect CAD visualization
+    Matches exact specifications from reference images
     """
-    
+
     def __init__(self, style: RenderingStyle = None):
         self.style = style or RenderingStyle()
-        self.colors = ArchitecturalColors()
-        
-        # Configure plotly for high-quality rendering
         self.config = {
             'displayModeBar': True,
+            'modeBarButtonsToAdd': ['drawline', 'drawopenpath', 'drawclosedpath', 'drawcircle', 'drawrect', 'eraseshape'],
+            'modeBarButtonsToRemove': ['pan2d', 'select2d', 'lasso2d'],
             'displaylogo': False,
-            'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
             'toImageButtonOptions': {
                 'format': 'png',
                 'filename': 'floor_plan',
                 'height': 1200,
                 'width': 1600,
-                'scale': 2  # High DPI
+                'scale': 3
             }
         }
 
     def render_empty_floor_plan(self, walls: List, restricted_areas: List, 
                                entrances: List, bounds: Tuple[float, float, float, float]) -> go.Figure:
         """
-        Render empty floor plan (Phase 2 - Image 1 equivalent)
-        Clean architectural drawing with walls, restricted areas, and entrances
+        Render empty floor plan matching reference Image 1
+        Clean architectural drawing with proper color coding
         """
         fig = go.Figure()
-        
-        # Set up the layout for pixel-perfect rendering
-        self._setup_figure_layout(fig, bounds)
-        
-        # Render walls (thick gray lines - MUR)
-        for wall in walls:
-            self._render_wall(fig, wall)
-        
-        # Render restricted areas (blue zones - NO ENTREE)
-        for area in restricted_areas:
-            self._render_restricted_area(fig, area)
-        
-        # Render entrances (red zones with door swings - ENTRÉE/SORTIE)
-        for entrance in entrances:
-            self._render_entrance(fig, entrance)
-        
+
+        # Set up the layout with professional appearance
+        self._setup_professional_layout(fig, bounds, "Empty Floor Plan - Professional Architecture")
+
+        # Render walls as thick gray lines (MUR)
+        self._render_walls(fig, walls)
+
+        # Render restricted areas as blue zones (NO ENTREE)
+        self._render_restricted_areas(fig, restricted_areas)
+
+        # Render entrances as red zones (ENTRÉE/SORTIE)
+        self._render_entrances(fig, entrances)
+
         # Add professional grid if enabled
         if self.style.show_grid:
             self._add_professional_grid(fig, bounds)
-        
-        # Add title and annotations
-        fig.update_layout(
-            title={
-                'text': "Floor Plan - Architectural Drawing",
-                'x': 0.5,
-                'font': {'size': 16, 'color': self.colors.TEXT_DARK}
-            }
-        )
-        
+
         return fig
 
     def render_floor_plan_with_ilots(self, walls: List, restricted_areas: List, 
                                    entrances: List, ilots: List, 
                                    bounds: Tuple[float, float, float, float]) -> go.Figure:
         """
-        Render floor plan with îlots placed (Phase 3 - Image 2 equivalent)
-        Includes all architectural elements plus optimally placed îlots
+        Render floor plan with îlots matching reference Image 2
+        Shows intelligent îlot placement with measurements
         """
-        # Start with empty floor plan
-        fig = self.render_empty_floor_plan(walls, restricted_areas, entrances, bounds)
-        
-        # Add îlots with proper sizing and color coding
-        for i, ilot in enumerate(ilots):
-            self._render_ilot(fig, ilot, i)
-        
-        # Update title
-        fig.update_layout(
-            title={
-                'text': f"Floor Plan with Îlots - {len(ilots)} Units Placed",
-                'x': 0.5,
-                'font': {'size': 16, 'color': self.colors.TEXT_DARK}
-            }
-        )
-        
+        fig = go.Figure()
+
+        # Set up layout
+        self._setup_professional_layout(fig, bounds, "Floor Plan with Îlots - Smart Placement")
+
+        # Render base elements
+        self._render_walls(fig, walls)
+        self._render_restricted_areas(fig, restricted_areas)
+        self._render_entrances(fig, entrances)
+
+        # Render îlots with professional styling
+        self._render_ilots(fig, ilots)
+
+        # Add measurements and labels
+        if self.style.show_measurements:
+            self._add_ilot_measurements(fig, ilots)
+
         return fig
 
     def render_floor_plan_with_corridors(self, walls: List, restricted_areas: List, 
                                        entrances: List, ilots: List, corridors: List,
                                        bounds: Tuple[float, float, float, float]) -> go.Figure:
         """
-        Render complete floor plan with corridor network (Phase 4 - Image 3 equivalent)
-        Full visualization with îlots, corridors, and area measurements
+        Render complete floor plan with corridors matching reference Image 3
+        Shows full layout with circulation paths and measurements
         """
-        # Start with îlots floor plan
-        fig = self.render_floor_plan_with_ilots(walls, restricted_areas, entrances, ilots, bounds)
-        
-        # Add corridor network (pink lines connecting îlots)
-        for corridor in corridors:
-            self._render_corridor(fig, corridor)
-        
-        # Add area measurements for each îlot
-        for i, ilot in enumerate(ilots):
-            self._add_ilot_measurement(fig, ilot, i)
-        
-        # Update title
-        total_area = sum(ilot.get('area', 0) for ilot in ilots)
-        fig.update_layout(
-            title={
-                'text': f"Complete Floor Plan - {len(ilots)} Îlots, {total_area:.1f}m² Total",
-                'x': 0.5,
-                'font': {'size': 16, 'color': self.colors.TEXT_DARK}
-            }
-        )
-        
+        fig = go.Figure()
+
+        # Set up layout
+        self._setup_professional_layout(fig, bounds, "Complete Floor Plan - Circulation Network")
+
+        # Render base elements
+        self._render_walls(fig, walls)
+        self._render_restricted_areas(fig, restricted_areas)
+        self._render_entrances(fig, entrances)
+
+        # Render corridors first (background)
+        self._render_corridors(fig, corridors)
+
+        # Render îlots on top
+        self._render_ilots(fig, ilots)
+
+        # Add comprehensive measurements
+        if self.style.show_measurements:
+            self._add_ilot_measurements(fig, ilots)
+            self._add_corridor_measurements(fig, corridors)
+
         return fig
 
-    def _setup_figure_layout(self, fig: go.Figure, bounds: Tuple[float, float, float, float]):
-        """Configure figure layout for professional architectural presentation"""
+    def _setup_professional_layout(self, fig: go.Figure, bounds: Tuple[float, float, float, float], title: str):
+        """Set up professional layout matching reference images"""
         min_x, min_y, max_x, max_y = bounds
-        
-        # Add margin for annotations and measurements
-        margin = max((max_x - min_x) * 0.1, (max_y - min_y) * 0.1)
-        
+
+        # Add margin around the drawing
+        margin = max((max_x - min_x), (max_y - min_y)) * 0.1
+
         fig.update_layout(
-            # Remove default plotly styling for clean architectural look
-            plot_bgcolor=self.colors.BACKGROUND_WHITE,
-            paper_bgcolor=self.colors.BACKGROUND_WHITE,
-            
-            # Professional axis styling
+            title={
+                'text': title,
+                'x': 0.5,
+                'font': {
+                    'size': 18,
+                    'color': self.style.text_color,
+                    'family': 'Arial, sans-serif'
+                }
+            },
+
+            # Set exact aspect ratio and bounds
             xaxis=dict(
                 range=[min_x - margin, max_x + margin],
-                showgrid=False,
+                scaleanchor="y",
+                scaleratio=1,
+                showgrid=self.style.show_grid,
+                gridcolor=self.style.grid_color,
+                gridwidth=0.5,
+                zeroline=False,
                 showline=True,
-                linecolor=self.colors.TEXT_DARK,
-                title="Distance (meters)",
-                title_font=dict(size=12, color=self.colors.TEXT_DARK),
-                tickfont=dict(size=10, color=self.colors.MEASUREMENT_TEXT),
-                dtick=5.0  # 5-meter intervals
+                linecolor='#E5E7EB',
+                title=dict(
+                    text="Distance (meters)",
+                    font=dict(size=12, color=self.style.text_color)
+                )
             ),
+
             yaxis=dict(
                 range=[min_y - margin, max_y + margin],
-                showgrid=False,
+                showgrid=self.style.show_grid,
+                gridcolor=self.style.grid_color,
+                gridwidth=0.5,
+                zeroline=False,
                 showline=True,
-                linecolor=self.colors.TEXT_DARK,
-                title="Distance (meters)",
-                title_font=dict(size=12, color=self.colors.TEXT_DARK),
-                tickfont=dict(size=10, color=self.colors.MEASUREMENT_TEXT),
-                dtick=5.0,
-                scaleanchor="x",
-                scaleratio=1
+                linecolor='#E5E7EB',
+                title=dict(
+                    text="Distance (meters)",
+                    font=dict(size=12, color=self.style.text_color)
+                )
             ),
-            
-            # Professional layout
-            width=1200,
-            height=800,
-            margin=dict(l=80, r=80, t=80, b=80),
+
+            # Professional appearance
+            plot_bgcolor=self.style.background_color,
+            paper_bgcolor='white',
+            font=dict(
+                family="Arial, sans-serif",
+                size=12,
+                color=self.style.text_color
+            ),
+
+            # Legend configuration
             showlegend=True,
             legend=dict(
                 x=1.02,
                 y=1,
-                bgcolor="rgba(255,255,255,0.8)",
-                bordercolor=self.colors.TEXT_DARK,
-                borderwidth=1
-            )
+                bgcolor="rgba(255, 255, 255, 0.9)",
+                bordercolor="rgba(0, 0, 0, 0.1)",
+                borderwidth=1,
+                font=dict(size=10)
+            ),
+
+            # Size and margins
+            width=1200,
+            height=800,
+            margin=dict(l=50, r=150, t=80, b=50)
         )
 
-    def _render_wall(self, fig: go.Figure, wall):
-        """Render wall with proper thickness and color (MUR style)"""
-        if hasattr(wall, 'geometry'):
-            points = wall.geometry
-        elif hasattr(wall, 'points'):
-            points = wall.points
-        else:
-            return
-        
-        if len(points) < 2:
-            return
-        
-        # Extract coordinates
-        x_coords = [p[0] for p in points]
-        y_coords = [p[1] for p in points]
-        
-        # Add wall as thick line
-        fig.add_trace(go.Scatter(
-            x=x_coords,
-            y=y_coords,
-            mode='lines',
-            line=dict(
-                color=self.colors.WALL_GRAY,
-                width=self.colors.WALL_THICKNESS
-            ),
-            name='Walls (MUR)',
-            legendgroup='walls',
-            showlegend=True,
-            hovertemplate='Wall<br>Length: %{customdata:.1f}m<extra></extra>',
-            customdata=[self._calculate_total_length(points)] * len(points)
-        ))
+    def _render_walls(self, fig: go.Figure, walls: List):
+        """Render walls as thick gray lines matching reference"""
+        for i, wall in enumerate(walls):
+            if hasattr(wall, 'geometry'):
+                geometry = wall.geometry
+            else:
+                # Handle dictionary format
+                points = wall.get('points', [])
+                if len(points) < 2:
+                    continue
+                x_coords = [p[0] for p in points]
+                y_coords = [p[1] for p in points]
 
-    def _render_restricted_area(self, fig: go.Figure, area):
-        """Render restricted area with blue fill (NO ENTREE style)"""
-        if hasattr(area, 'geometry'):
-            points = area.geometry
-        elif hasattr(area, 'points'):
-            points = area.points
-        else:
-            return
-        
-        if len(points) < 3:
-            return
-        
-        # Extract coordinates and close polygon
-        x_coords = [p[0] for p in points] + [points[0][0]]
-        y_coords = [p[1] for p in points] + [points[0][1]]
-        
-        # Add filled area
-        fig.add_trace(go.Scatter(
-            x=x_coords,
-            y=y_coords,
-            fill='toself',
-            fillcolor=f'rgba({self._hex_to_rgb(self.colors.RESTRICTED_BLUE)}, 0.3)',
-            line=dict(
-                color=self.colors.RESTRICTED_BLUE,
-                width=self.colors.BORDER_THICKNESS
-            ),
-            mode='lines',
-            name='Restricted (NO ENTREE)',
-            legendgroup='restricted',
-            showlegend=True,
-            hovertemplate='Restricted Area<br>Area: %{customdata:.1f}m²<extra></extra>',
-            customdata=[self._calculate_polygon_area(points)] * len(x_coords)
-        ))
+            if hasattr(geometry, 'coords'):
+                coords = list(geometry.coords)
+                x_coords = [p[0] for p in coords]
+                y_coords = [p[1] for p in coords]
 
-    def _render_entrance(self, fig: go.Figure, entrance):
-        """Render entrance with red styling and door swing (ENTRÉE/SORTIE style)"""
-        if hasattr(entrance, 'geometry'):
-            points = entrance.geometry
-        elif hasattr(entrance, 'points'):
-            points = entrance.points
-        else:
-            return
-        
-        if len(points) < 2:
-            return
-        
-        # For line entrances (door openings)
-        if len(points) == 2:
-            x_coords = [points[0][0], points[1][0]]
-            y_coords = [points[0][1], points[1][1]]
-            
-            # Add door opening line
             fig.add_trace(go.Scatter(
                 x=x_coords,
                 y=y_coords,
                 mode='lines',
                 line=dict(
-                    color=self.colors.ENTRANCE_RED,
-                    width=self.colors.WALL_THICKNESS
+                    color=self.style.wall_color,
+                    width=self.style.wall_width
                 ),
-                name='Entrance (ENTRÉE)',
-                legendgroup='entrances',
-                showlegend=True,
-                hovertemplate='Entrance<br>Width: %{customdata:.1f}m<extra></extra>',
-                customdata=[self._calculate_distance(points[0], points[1])] * len(x_coords)
+                name='Walls (MUR)' if i == 0 else '',
+                showlegend=(i == 0),
+                hovertemplate="<b>Wall</b><br>Length: %{customdata:.1f}m<extra></extra>",
+                customdata=[getattr(geometry, 'length', 0)] * len(x_coords) if 'geometry' in locals() else [0] * len(x_coords)
             ))
-            
-            # Add door swing arc if this is a door
-            self._add_door_swing(fig, points[0], points[1])
-        
-        # For area entrances (entrance zones)
-        elif len(points) >= 3:
-            x_coords = [p[0] for p in points] + [points[0][0]]
-            y_coords = [p[1] for p in points] + [points[0][1]]
-            
+
+    def _render_restricted_areas(self, fig: go.Figure, restricted_areas: List):
+        """Render restricted areas as blue zones (NO ENTREE)"""
+        for i, area in enumerate(restricted_areas):
+            if hasattr(area, 'geometry'):
+                geometry = area.geometry
+            else:
+                points = area.get('points', [])
+                if len(points) < 3:
+                    continue
+                x_coords = [p[0] for p in points] + [points[0][0]]
+                y_coords = [p[1] for p in points] + [points[0][1]]
+
+            if hasattr(geometry, 'exterior'):
+                coords = list(geometry.exterior.coords)
+                x_coords = [p[0] for p in coords]
+                y_coords = [p[1] for p in coords]
+
             fig.add_trace(go.Scatter(
                 x=x_coords,
                 y=y_coords,
                 fill='toself',
-                fillcolor=f'rgba({self._hex_to_rgb(self.colors.ENTRANCE_RED)}, 0.2)',
+                fillcolor=f'rgba({self._hex_to_rgb(self.style.restricted_color)}, {self.style.restricted_opacity})',
                 line=dict(
-                    color=self.colors.ENTRANCE_RED,
-                    width=self.colors.BORDER_THICKNESS
+                    color=self.style.restricted_color,
+                    width=2
                 ),
                 mode='lines',
-                name='Entrance Zone',
-                legendgroup='entrances',
-                showlegend=True,
-                hovertemplate='Entrance Zone<br>Area: %{customdata:.1f}m²<extra></extra>',
-                customdata=[self._calculate_polygon_area(points)] * len(x_coords)
+                name='Restricted Areas (NO ENTREE)' if i == 0 else '',
+                showlegend=(i == 0),
+                hovertemplate="<b>Restricted Area</b><br>Area: %{customdata:.1f}m²<extra></extra>",
+                customdata=[getattr(geometry, 'area', 0)] * len(x_coords) if 'geometry' in locals() else [0] * len(x_coords)
             ))
 
-    def _add_door_swing(self, fig: go.Figure, start_point: Tuple[float, float], 
-                       end_point: Tuple[float, float]):
-        """Add door swing arc visualization"""
-        door_width = self._calculate_distance(start_point, end_point)
-        
-        # Create 90-degree door swing arc
-        center = start_point
-        radius = door_width
-        
-        # Calculate swing arc points
-        start_angle = math.atan2(end_point[1] - start_point[1], end_point[0] - start_point[0])
-        angles = np.linspace(start_angle, start_angle + math.pi/2, 20)
-        
-        arc_x = [center[0] + radius * math.cos(a) for a in angles]
-        arc_y = [center[1] + radius * math.sin(a) for a in angles]
-        
-        # Add door swing arc
-        fig.add_trace(go.Scatter(
-            x=arc_x,
-            y=arc_y,
-            mode='lines',
-            line=dict(
-                color=self.colors.ENTRANCE_RED,
-                width=1.0,
-                dash='dash'
-            ),
-            name='Door Swing',
-            legendgroup='entrances',
-            showlegend=False,
-            hoverinfo='skip'
-        ))
-
-    def _render_ilot(self, fig: go.Figure, ilot: Dict, index: int):
-        """Render îlot with proper sizing and color coding"""
-        if 'polygon' not in ilot and 'points' not in ilot:
-            return
-        
-        # Get îlot geometry
-        if 'polygon' in ilot:
-            if hasattr(ilot['polygon'], 'exterior'):
-                x_coords, y_coords = ilot['polygon'].exterior.xy
-                x_coords, y_coords = list(x_coords), list(y_coords)
+    def _render_entrances(self, fig: go.Figure, entrances: List):
+        """Render entrances as red zones (ENTRÉE/SORTIE)"""
+        for i, entrance in enumerate(entrances):
+            if hasattr(entrance, 'geometry'):
+                geometry = entrance.geometry
             else:
-                return
-        else:
-            points = ilot['points']
-            x_coords = [p[0] for p in points] + [points[0][0]]
-            y_coords = [p[1] for p in points] + [points[0][1]]
-        
-        area = ilot.get('area', 0)
-        category = ilot.get('category', 'Standard')
-        
-        # Color coding by size
-        if area <= 1:
-            fill_color = '#FEF3F2'  # Very light pink
-            border_color = '#F97316'  # Orange
-        elif area <= 3:
-            fill_color = '#FEE2E2'  # Light pink
-            border_color = '#DC2626'  # Red
-        elif area <= 5:
-            fill_color = '#FCE7F3'  # Medium pink
-            border_color = '#BE185D'  # Dark pink
-        else:
-            fill_color = '#F3E8FF'  # Light purple
-            border_color = '#7C3AED'  # Purple
-        
-        # Add îlot shape
-        fig.add_trace(go.Scatter(
-            x=x_coords,
-            y=y_coords,
-            fill='toself',
-            fillcolor=fill_color,
-            line=dict(
-                color=border_color,
-                width=self.colors.BORDER_THICKNESS
-            ),
-            mode='lines',
-            name=f'Îlot {category}',
-            legendgroup='ilots',
-            showlegend=(index == 0),  # Only show legend for first îlot
-            hovertemplate=f'Îlot {index + 1}<br>Area: {area:.2f}m²<br>Category: {category}<extra></extra>'
-        ))
+                points = entrance.get('points', [])
+                if len(points) < 2:
+                    continue
+                x_coords = [p[0] for p in points]
+                y_coords = [p[1] for p in points]
 
-    def _render_corridor(self, fig: go.Figure, corridor: Dict):
-        """Render corridor with pink styling"""
-        if 'points' not in corridor:
-            return
-        
-        points = corridor['points']
-        x_coords = [p[0] for p in points]
-        y_coords = [p[1] for p in points]
-        
-        # Add corridor line
-        fig.add_trace(go.Scatter(
-            x=x_coords,
-            y=y_coords,
-            mode='lines',
-            line=dict(
-                color=self.colors.CORRIDOR_BORDER,
-                width=self.colors.CORRIDOR_THICKNESS * 2
-            ),
-            name='Corridors',
-            legendgroup='corridors',
-            showlegend=True,
-            hovertemplate='Corridor<br>Length: %{customdata:.1f}m<extra></extra>',
-            customdata=[self._calculate_total_length(points)] * len(points)
-        ))
+            if hasattr(geometry, 'coords'):
+                coords = list(geometry.coords)
+                x_coords = [p[0] for p in coords]
+                y_coords = [p[1] for p in coords]
+            elif hasattr(geometry, 'exterior'):
+                coords = list(geometry.exterior.coords)
+                x_coords = [p[0] for p in coords]
+                y_coords = [p[1] for p in coords]
 
-    def _add_ilot_measurement(self, fig: go.Figure, ilot: Dict, index: int):
-        """Add area measurement text to îlot"""
-        if not self.style.show_measurements:
-            return
-        
-        # Calculate centroid for text placement
-        if 'polygon' in ilot and hasattr(ilot['polygon'], 'centroid'):
-            centroid = ilot['polygon'].centroid
-            x, y = centroid.x, centroid.y
-        elif 'points' in ilot:
-            points = ilot['points']
-            x = sum(p[0] for p in points) / len(points)
-            y = sum(p[1] for p in points) / len(points)
-        else:
-            return
-        
-        area = ilot.get('area', 0)
-        
-        # Add measurement annotation
-        fig.add_annotation(
-            x=x,
-            y=y,
-            text=f"{area:.1f}m²",
-            showarrow=False,
-            font=dict(
-                size=10,
-                color=self.colors.TEXT_DARK,
-                family="Arial Black"
-            ),
-            bgcolor="rgba(255,255,255,0.8)",
-            bordercolor=self.colors.TEXT_DARK,
-            borderwidth=1
-        )
+            fig.add_trace(go.Scatter(
+                x=x_coords,
+                y=y_coords,
+                mode='lines',
+                line=dict(
+                    color=self.style.entrance_color,
+                    width=self.style.entrance_width
+                ),
+                name='Entrances (ENTRÉE/SORTIE)' if i == 0 else '',
+                showlegend=(i == 0),
+                hovertemplate="<b>Entrance/Exit</b><br>Width: %{customdata:.1f}m<extra></extra>",
+                customdata=[getattr(geometry, 'length', 0)] * len(x_coords) if 'geometry' in locals() else [0] * len(x_coords)
+            ))
+
+    def _render_ilots(self, fig: go.Figure, ilots: List):
+        """Render îlots with professional styling and measurements"""
+        for i, ilot in enumerate(ilots):
+            # Handle different îlot formats
+            if hasattr(ilot, 'polygon'):
+                geometry = ilot.polygon
+            elif 'polygon' in ilot:
+                geometry = ilot['polygon']
+            else:
+                # Create polygon from position and dimensions
+                x = ilot.get('x', 0)
+                y = ilot.get('y', 0)
+                width = ilot.get('width', 1)
+                height = ilot.get('height', 1)
+
+                x_coords = [x, x + width, x + width, x, x]
+                y_coords = [y, y, y + height, y + height, y]
+
+            if hasattr(geometry, 'exterior'):
+                coords = list(geometry.exterior.coords)
+                x_coords = [p[0] for p in coords]
+                y_coords = [p[1] for p in coords]
+
+            # Get îlot properties
+            area = ilot.get('area', getattr(geometry, 'area', 0) if 'geometry' in locals() else 0)
+            category = ilot.get('category', 'Standard')
+
+            # Color based on category
+            if 'micro' in category.lower() or '0-1' in category:
+                fill_color = 'rgba(254, 243, 242, 0.8)'
+            elif 'small' in category.lower() or '1-3' in category:
+                fill_color = 'rgba(254, 226, 226, 0.8)'
+            elif 'medium' in category.lower() or '3-5' in category:
+                fill_color = 'rgba(252, 231, 243, 0.8)'
+            else:
+                fill_color = 'rgba(243, 232, 255, 0.8)'
+
+            fig.add_trace(go.Scatter(
+                x=x_coords,
+                y=y_coords,
+                fill='toself',
+                fillcolor=fill_color,
+                line=dict(
+                    color=self.style.ilot_outline_color,
+                    width=2
+                ),
+                mode='lines',
+                name=f'Îlots {category}' if i == 0 else '',
+                showlegend=(i == 0),
+                hovertemplate=f"<b>Îlot {i+1}</b><br>Area: {area:.1f}m²<br>Category: {category}<extra></extra>"
+            ))
+
+    def _render_corridors(self, fig: go.Figure, corridors: List):
+        """Render corridors as pink circulation paths"""
+        for i, corridor in enumerate(corridors):
+            if hasattr(corridor, 'polygon'):
+                geometry = corridor.polygon
+            elif 'polygon' in corridor:
+                geometry = corridor['polygon']
+            else:
+                continue
+
+            if hasattr(geometry, 'exterior'):
+                coords = list(geometry.exterior.coords)
+                x_coords = [p[0] for p in coords]
+                y_coords = [p[1] for p in coords]
+
+                fig.add_trace(go.Scatter(
+                    x=x_coords,
+                    y=y_coords,
+                    fill='toself',
+                    fillcolor=f'rgba({self._hex_to_rgb(self.style.corridor_color)}, {self.style.corridor_opacity})',
+                    line=dict(
+                        color=self.style.corridor_color,
+                        width=2
+                    ),
+                    mode='lines',
+                    name='Circulation Corridors' if i == 0 else '',
+                    showlegend=(i == 0),
+                    hovertemplate=f"<b>Corridor</b><br>Area: {geometry.area:.1f}m²<extra></extra>"
+                ))
+
+    def _add_ilot_measurements(self, fig: go.Figure, ilots: List):
+        """Add area measurements to îlots matching reference Image 2"""
+        for i, ilot in enumerate(ilots):
+            # Get center position
+            if hasattr(ilot, 'position'):
+                center_x, center_y = ilot.position
+            elif 'position' in ilot:
+                center_x, center_y = ilot['position']
+            else:
+                x = ilot.get('x', 0)
+                y = ilot.get('y', 0)
+                width = ilot.get('width', 1)
+                height = ilot.get('height', 1)
+                center_x = x + width / 2
+                center_y = y + height / 2
+
+            # Get area
+            area = ilot.get('area', 0)
+
+            # Add text annotation
+            fig.add_annotation(
+                x=center_x,
+                y=center_y,
+                text=f"{area:.1f}m²",
+                showarrow=False,
+                font=dict(
+                    size=10,
+                    color=self.style.text_color,
+                    family="Arial, sans-serif"
+                ),
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor=self.style.text_color,
+                borderwidth=1
+            )
+
+    def _add_corridor_measurements(self, fig: go.Figure, corridors: List):
+        """Add measurements to corridors"""
+        for corridor in corridors:
+            if hasattr(corridor, 'polygon'):
+                geometry = corridor.polygon
+                centroid = geometry.centroid
+
+                fig.add_annotation(
+                    x=centroid.x,
+                    y=centroid.y,
+                    text=f"Corridor\n{geometry.area:.1f}m²",
+                    showarrow=False,
+                    font=dict(
+                        size=9,
+                        color=self.style.text_color,
+                        family="Arial, sans-serif"
+                    ),
+                    bgcolor="rgba(255, 255, 255, 0.8)",
+                    bordercolor=self.style.corridor_color,
+                    borderwidth=1
+                )
 
     def _add_professional_grid(self, fig: go.Figure, bounds: Tuple[float, float, float, float]):
-        """Add professional grid for technical drawings"""
+        """Add professional grid matching architectural standards"""
         min_x, min_y, max_x, max_y = bounds
-        
-        # Grid spacing based on drawing size
-        width = max_x - min_x
-        height = max_y - min_y
-        max_dim = max(width, height)
-        
-        if max_dim <= 20:
-            grid_spacing = 1.0  # 1m grid for small drawings
-        elif max_dim <= 50:
-            grid_spacing = 2.5  # 2.5m grid for medium drawings
-        else:
-            grid_spacing = 5.0  # 5m grid for large drawings
-        
-        # Vertical grid lines
-        x_start = math.floor(min_x / grid_spacing) * grid_spacing
-        x_end = math.ceil(max_x / grid_spacing) * grid_spacing
-        
-        for x in np.arange(x_start, x_end + grid_spacing, grid_spacing):
-            fig.add_shape(
-                type="line",
-                x0=x, y0=min_y, x1=x, y1=max_y,
-                line=dict(
-                    color=self.colors.GRID_LIGHT_GRAY,
-                    width=self.colors.GRID_THICKNESS
-                )
-            )
-        
-        # Horizontal grid lines
-        y_start = math.floor(min_y / grid_spacing) * grid_spacing
-        y_end = math.ceil(max_y / grid_spacing) * grid_spacing
-        
-        for y in np.arange(y_start, y_end + grid_spacing, grid_spacing):
-            fig.add_shape(
-                type="line",
-                x0=min_x, y0=y, x1=max_x, y1=y,
-                line=dict(
-                    color=self.colors.GRID_LIGHT_GRAY,
-                    width=self.colors.GRID_THICKNESS
-                )
-            )
 
-    # Utility methods
+        # Grid spacing based on scale
+        span_x = max_x - min_x
+        span_y = max_y - min_y
+        max_span = max(span_x, span_y)
+
+        if max_span < 10:
+            grid_spacing = 0.5  # 50cm
+        elif max_span < 50:
+            grid_spacing = 1.0  # 1m
+        else:
+            grid_spacing = 5.0  # 5m
+
+        # Update grid in layout
+        fig.update_xaxes(dtick=grid_spacing)
+        fig.update_yaxes(dtick=grid_spacing)
+
     def _hex_to_rgb(self, hex_color: str) -> str:
         """Convert hex color to RGB string"""
         hex_color = hex_color.lstrip('#')
@@ -536,80 +479,17 @@ class PixelPerfectRenderer:
         b = int(hex_color[4:6], 16)
         return f"{r}, {g}, {b}"
 
-    def _calculate_distance(self, p1: Tuple[float, float], p2: Tuple[float, float]) -> float:
-        """Calculate distance between two points"""
-        return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
-
-    def _calculate_total_length(self, points: List[Tuple[float, float]]) -> float:
-        """Calculate total length of point sequence"""
-        if len(points) < 2:
-            return 0.0
-        
-        total = 0.0
-        for i in range(len(points) - 1):
-            total += self._calculate_distance(points[i], points[i + 1])
-        return total
-
-    def _calculate_polygon_area(self, points: List[Tuple[float, float]]) -> float:
-        """Calculate area of polygon using shoelace formula"""
-        if len(points) < 3:
-            return 0.0
-        
-        area = 0.0
-        n = len(points)
-        for i in range(n):
-            j = (i + 1) % n
-            area += points[i][0] * points[j][1]
-            area -= points[j][0] * points[i][1]
-        return abs(area) / 2.0
-
-    def export_high_resolution_image(self, fig: go.Figure, filename: str, 
-                                   width: int = 1600, height: int = 1200, scale: int = 2) -> str:
-        """Export figure as high-resolution image"""
+    def export_high_resolution_image(self, fig: go.Figure, filename: str) -> str:
+        """Export high-resolution image for professional presentations"""
         try:
-            img_bytes = fig.to_image(
+            fig.write_image(
+                filename,
                 format="png",
-                width=width,
-                height=height,
-                scale=scale,
-                engine="kaleido"
+                width=1600,
+                height=1200,
+                scale=3
             )
-            
-            with open(filename, "wb") as f:
-                f.write(img_bytes)
-            
             return filename
-            
         except Exception as e:
-            logger.error(f"Error exporting image: {e}")
-            return ""
-
-    def create_comparison_view(self, figures: List[go.Figure], titles: List[str]) -> go.Figure:
-        """Create side-by-side comparison of different phases"""
-        from plotly.subplots import make_subplots
-        
-        rows = 1
-        cols = len(figures)
-        
-        subplot_fig = make_subplots(
-            rows=rows, cols=cols,
-            subplot_titles=titles,
-            horizontal_spacing=0.05
-        )
-        
-        for i, fig in enumerate(figures):
-            col = i + 1
-            
-            # Copy traces from original figure
-            for trace in fig.data:
-                subplot_fig.add_trace(trace, row=1, col=col)
-        
-        # Update layout for comparison view
-        subplot_fig.update_layout(
-            title="Floor Plan Development Phases",
-            showlegend=True,
-            width=1800,
-            height=600
-        )
-        
-        return subplot_fig
+            print(f"Export failed: {e}")
+            return None
