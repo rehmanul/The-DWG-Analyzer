@@ -1720,17 +1720,74 @@ if st.session_state.available_zones or st.session_state.walls:
                 
                 # Generate îlots if button clicked
                 if st.session_state.get('generate_layout'):
-                    with st.spinner("🧠 Generating optimal îlot placement..."):
-                        # Use legacy îlot generation for now, enhanced in future phases
-                        ilots = generate_intelligent_ilots(
+                    with st.spinner("🧠 Generating optimal îlot placement with advanced algorithms..."):
+                        # Use advanced îlot engine (Phase 2 Implementation)
+                        from src.advanced_ilot_engine import AdvancedIlotEngine, IlotConfig
+                        
+                        # Configure advanced îlot engine
+                        ilot_config = IlotConfig(
+                            min_size=0.5,
+                            max_size=10.0,
+                            min_spacing=ilot_spacing,
+                            shape_variety=True,
+                            allow_wall_contact=True,
+                            avoid_restricted=True,
+                            avoid_entrances=True,
+                            size_0_1_ratio=size_0_1,
+                            size_1_3_ratio=size_1_3,
+                            size_3_5_ratio=size_3_5,
+                            size_5_10_ratio=size_5_10
+                        )
+                        
+                        # Initialize advanced engine
+                        ilot_engine = AdvancedIlotEngine(ilot_config)
+                        
+                        # Generate îlots with genetic algorithm
+                        advanced_ilots = ilot_engine.place_ilots_intelligently(
                             st.session_state.available_zones,
                             st.session_state.walls,
                             st.session_state.restricted,
-                            size_0_1, size_1_3, size_3_5, size_5_10,
-                            algorithm=algorithm
+                            st.session_state.entrances
                         )
-                        st.session_state.ilots = ilots
+                        
+                        # Convert to legacy format for compatibility
+                        legacy_ilots = []
+                        for ilot in advanced_ilots:
+                            legacy_ilots.append({
+                                'id': ilot.id,
+                                'x': ilot.x,
+                                'y': ilot.y,
+                                'width': ilot.width,
+                                'height': ilot.height,
+                                'area': ilot.area,
+                                'polygon': ilot.polygon,
+                                'category': ilot.category,
+                                'color': ilot.color
+                            })
+                        
+                        st.session_state.ilots = legacy_ilots
+                        st.session_state.advanced_ilots = advanced_ilots
+                        st.session_state.ilot_engine = ilot_engine
                         st.session_state.generate_layout = False
+                        
+                        # Display advanced statistics
+                        stats = ilot_engine.get_placement_statistics()
+                        st.success(f"""
+                        🎯 **Advanced Îlot Placement Complete**
+                        - **Total Îlots**: {stats.get('total_ilots', 0)}
+                        - **Coverage Area**: {stats.get('total_area', 0):.1f}m²
+                        - **Space Utilization**: {stats.get('density', 0):.1%}
+                        - **Algorithm**: Genetic Algorithm with Spatial Optimization
+                        """)
+                        
+                        # Category breakdown
+                        categories = stats.get('categories', {})
+                        if categories:
+                            st.write("**Category Distribution:**")
+                            for category, data in categories.items():
+                                st.write(f"- {category}: {data['count']} units ({data['area']:.1f}m²)")
+                        
+                        st.info("✨ Advanced algorithms used: Genetic Algorithm → Spatial Optimization → Constraint Satisfaction")
                 
                 if st.session_state.get('ilots'):
                     # Render with îlots
@@ -1762,13 +1819,54 @@ if st.session_state.available_zones or st.session_state.walls:
                 if st.session_state.get('ilots'):
                     # Generate corridors if needed
                     if 'corridors' not in st.session_state or not st.session_state.corridors:
-                        with st.spinner("🛤️ Generating corridor network..."):
-                            corridors = generate_intelligent_corridors(
+                        with st.spinner("🛤️ Generating intelligent corridor network..."):
+                            # Use advanced corridor system (Phase 3 Implementation)
+                            from src.intelligent_corridor_system import IntelligentCorridorSystem, CorridorConfig
+                            
+                            # Configure corridor system
+                            corridor_config = CorridorConfig(
+                                width=corridor_width,
+                                min_width=1.2,
+                                max_width=3.0,
+                                style=corridor_type.lower(),
+                                junction_style=junction_style.lower().replace(' ', '_').replace('°', ''),
+                                connect_to_entrances=True,
+                                avoid_restricted=True,
+                                minimize_total_length=True,
+                                maximize_accessibility=True,
+                                pathfinding_algorithm="A*"
+                            )
+                            
+                            # Initialize corridor system
+                            corridor_system = IntelligentCorridorSystem(corridor_config)
+                            
+                            # Generate corridor network
+                            corridor_network = corridor_system.generate_corridor_network(
                                 st.session_state.ilots,
                                 st.session_state.walls,
-                                corridor_width
+                                st.session_state.restricted,
+                                st.session_state.entrances,
+                                st.session_state.available_zones
                             )
-                            st.session_state.corridors = corridors
+                            
+                            # Convert to legacy format
+                            legacy_corridors = corridor_system.export_to_legacy_format()
+                            st.session_state.corridors = legacy_corridors
+                            st.session_state.corridor_network = corridor_network
+                            st.session_state.corridor_system = corridor_system
+                            
+                            # Display corridor statistics
+                            stats = corridor_system.get_network_statistics()
+                            st.success(f"""
+                            🛤️ **Intelligent Corridor Network Complete**
+                            - **Total Segments**: {stats.get('total_segments', 0)}
+                            - **Total Length**: {stats.get('total_length', 0):.1f}m
+                            - **Network Area**: {stats.get('network_area', 0):.1f}m²
+                            - **Connectivity Score**: {stats.get('connectivity_score', 0):.1f}%
+                            - **Accessibility Score**: {stats.get('accessibility_score', 0):.1f}%
+                            """)
+                            
+                            st.info("✨ Advanced pathfinding: A* Algorithm → Network Optimization → Junction Enhancement")
                     
                     # Render complete floor plan
                     complete_fig = renderer.render_floor_plan_with_corridors(
@@ -1804,65 +1902,314 @@ if st.session_state.available_zones or st.session_state.walls:
                     st.info("Generate îlots first to create corridor network")
             
             with phase_tab4:
-                st.subheader("Advanced Analysis - Professional Metrics")
+                st.subheader("Phase 4: Advanced Analytics Dashboard - Professional Insights")
                 
-                # Display comprehensive analysis
-                processor_metadata = phase1_data['processor_metadata']
-                
-                # Create analysis dashboard
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.write("**Geometric Analysis:**")
-                    analysis_data = {
-                        "Element Type": ["Walls", "Rooms", "Restricted Areas", "Entrances"],
-                        "Count": [
-                            len(geometric_analysis['walls']),
-                            len(geometric_analysis['rooms']),
-                            len(geometric_analysis['restricted_areas']),
-                            len(geometric_analysis['entrances'])
-                        ],
-                        "Total Length/Area": [
-                            f"{sum(w.length for w in geometric_analysis['walls']):.1f}m",
-                            f"{sum(r.area for r in geometric_analysis['rooms']):.1f}m²",
-                            f"{len(geometric_analysis['restricted_areas'])} zones",
-                            f"{len(geometric_analysis['entrances'])} openings"
-                        ]
-                    }
+                # Generate comprehensive analytics if îlots and corridors exist
+                if st.session_state.get('ilots') and st.session_state.get('corridors'):
+                    with st.spinner("🔍 Generating comprehensive analytics report..."):
+                        # Use Phase 4 Analytics System
+                        from src.phase_4_analytics import Phase4AnalyticsSystem, AnalyticsConfig
+                        
+                        # Configure analytics system
+                        analytics_config = AnalyticsConfig(
+                            include_compliance_analysis=True,
+                            include_efficiency_metrics=True,
+                            include_spatial_analysis=True,
+                            include_optimization_suggestions=True,
+                            include_financial_estimates=True,
+                            report_format="comprehensive"
+                        )
+                        
+                        # Initialize analytics system
+                        analytics_system = Phase4AnalyticsSystem(analytics_config)
+                        
+                        # Generate comprehensive report
+                        analytics_report = analytics_system.generate_comprehensive_report(
+                            phase1_data=phase1_data,
+                            ilots=st.session_state.ilots,
+                            corridors=st.session_state.corridors,
+                            walls=st.session_state.walls,
+                            restricted_areas=st.session_state.restricted,
+                            entrances=st.session_state.entrances,
+                            project_name=project_name
+                        )
+                        
+                        st.session_state.analytics_report = analytics_report
+                        st.session_state.analytics_system = analytics_system
+                        
+                        # Display performance grade
+                        grade_colors = {
+                            'A+': '#10B981', 'A': '#10B981', 'A-': '#059669',
+                            'B+': '#F59E0B', 'B': '#F59E0B', 'B-': '#D97706',
+                            'C+': '#EF4444', 'C': '#EF4444', 'C-': '#DC2626',
+                            'D': '#991B1B'
+                        }
+                        
+                        grade_color = grade_colors.get(analytics_report.performance_grade, '#6B7280')
+                        st.markdown(f"""
+                        <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, {grade_color}20, {grade_color}10); border-radius: 10px; margin: 20px 0;">
+                            <h1 style="color: {grade_color}; margin: 0; font-size: 3rem;">{analytics_report.performance_grade}</h1>
+                            <p style="color: {grade_color}; font-size: 1.2rem; margin: 10px 0;">Overall Performance Grade</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                     
-                    import pandas as pd
-                    df = pd.DataFrame(analysis_data)
-                    st.dataframe(df, use_container_width=True)
-                
-                with col2:
-                    st.write("**Processing Quality:**")
-                    quality_metrics = {
-                        "Confidence Score": f"{best_plan.confidence_score:.1%}",
-                        "Processing Method": "Ultra CAD Processor",
-                        "Scale": f"1:{best_plan.scale}",
-                        "Units": best_plan.units,
-                        "Entities Processed": best_plan.sheet_info.get('entity_count', 'N/A'),
-                        "File Format": best_plan.sheet_info.get('format', 'CAD')
-                    }
+                    # Key Performance Indicators
+                    st.write("### 📊 Key Performance Indicators")
+                    col1, col2, col3, col4 = st.columns(4)
                     
-                    for metric, value in quality_metrics.items():
-                        st.metric(metric, value)
-                
-                # Room analysis if available
-                if geometric_analysis['rooms']:
-                    st.write("**Room Analysis:**")
-                    room_data = []
-                    for i, room in enumerate(geometric_analysis['rooms']):
-                        room_data.append({
-                            "Room ID": f"Room_{i+1:02d}",
-                            "Type": room.room_type,
-                            "Area": f"{room.area:.1f}m²",
-                            "Perimeter": f"{room.perimeter:.1f}m",
-                            "Openings": len(room.openings)
-                        })
+                    with col1:
+                        st.metric(
+                            "Space Utilization",
+                            f"{analytics_report.space_utilization:.1%}",
+                            f"{(analytics_report.space_utilization - 0.75) * 100:.1f}%" if analytics_report.space_utilization > 0.75 else f"{(analytics_report.space_utilization - 0.75) * 100:.1f}%"
+                        )
                     
-                    room_df = pd.DataFrame(room_data)
-                    st.dataframe(room_df, use_container_width=True)
+                    with col2:
+                        st.metric(
+                            "Placement Efficiency",
+                            f"{analytics_report.placement_efficiency:.1%}",
+                            f"{(analytics_report.placement_efficiency - 0.8) * 100:.1f}%" if analytics_report.placement_efficiency > 0.8 else f"{(analytics_report.placement_efficiency - 0.8) * 100:.1f}%"
+                        )
+                    
+                    with col3:
+                        st.metric(
+                            "Accessibility Score",
+                            f"{analytics_report.accessibility_score:.1%}",
+                            f"{(analytics_report.accessibility_score - 0.9) * 100:.1f}%" if analytics_report.accessibility_score > 0.9 else f"{(analytics_report.accessibility_score - 0.9) * 100:.1f}%"
+                        )
+                    
+                    with col4:
+                        st.metric(
+                            "Compliance Score",
+                            f"{analytics_report.compliance_score:.1%}",
+                            f"{(analytics_report.compliance_score - 0.95) * 100:.1f}%" if analytics_report.compliance_score > 0.95 else f"{(analytics_report.compliance_score - 0.95) * 100:.1f}%"
+                        )
+                    
+                    # Detailed Analytics Tabs
+                    analytics_tab1, analytics_tab2, analytics_tab3, analytics_tab4 = st.tabs([
+                        "📈 Performance Metrics",
+                        "🔍 Spatial Analysis",
+                        "💰 Financial Analysis",
+                        "⚡ Optimization Insights"
+                    ])
+                    
+                    with analytics_tab1:
+                        st.write("### Performance Metrics Breakdown")
+                        
+                        # Display metrics dataframe
+                        metrics_df = analytics_system.export_report_to_dataframe()
+                        st.dataframe(metrics_df, use_container_width=True)
+                        
+                        # Compliance details
+                        st.write("### Compliance Analysis")
+                        compliance_data = []
+                        for check, passed in analytics_report.compliance_details.items():
+                            compliance_data.append({
+                                "Compliance Check": check.replace('_', ' ').title(),
+                                "Status": "✅ Passed" if passed else "❌ Failed",
+                                "Critical": "Yes" if check in ['fire_safety_compliance', 'accessibility_compliance'] else "No"
+                            })
+                        
+                        compliance_df = pd.DataFrame(compliance_data)
+                        st.dataframe(compliance_df, use_container_width=True)
+                    
+                    with analytics_tab2:
+                        st.write("### Spatial Distribution Analysis")
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.write("**Distribution Metrics:**")
+                            spatial_data = analytics_report.spatial_distribution
+                            st.metric("Uniformity Score", f"{spatial_data.get('uniformity', 0):.1%}")
+                            st.metric("Balance Score", f"{spatial_data.get('balance', 0):.1%}")
+                            
+                            density_data = analytics_report.density_analysis
+                            st.metric("Average Density", f"{density_data.get('average_density', 0):.1f}")
+                            st.metric("Density Balance", f"{density_data.get('balance_score', 0):.1%}")
+                        
+                        with col2:
+                            st.write("**Spatial Quality Assessment:**")
+                            
+                            # Create spatial quality chart
+                            spatial_metrics = {
+                                'Uniformity': spatial_data.get('uniformity', 0),
+                                'Balance': spatial_data.get('balance', 0),
+                                'Density Balance': density_data.get('balance_score', 0)
+                            }
+                            
+                            spatial_df = pd.DataFrame(list(spatial_metrics.items()), columns=['Metric', 'Score'])
+                            st.bar_chart(spatial_df.set_index('Metric'))
+                    
+                    with analytics_tab3:
+                        st.write("### Financial Analysis")
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.write("**Revenue Estimates:**")
+                            revenue_data = analytics_report.revenue_estimates
+                            st.metric("Annual Revenue", f"${revenue_data.get('annual_revenue', 0):,.0f}")
+                            st.metric("Revenue per m²", f"${revenue_data.get('revenue_per_sqm', 0):,.0f}")
+                            
+                            # Revenue breakdown by category
+                            if st.session_state.get('ilot_engine'):
+                                stats = st.session_state.ilot_engine.get_placement_statistics()
+                                categories = stats.get('categories', {})
+                                if categories:
+                                    st.write("**Revenue by Category:**")
+                                    for category, data in categories.items():
+                                        area = data['area']
+                                        revenue = area * 425  # Average rate
+                                        st.write(f"- {category}: ${revenue:,.0f} ({area:.1f}m²)")
+                        
+                        with col2:
+                            st.write("**Cost Analysis:**")
+                            cost_data = analytics_report.cost_estimates
+                            st.metric("Construction Cost", f"${cost_data.get('construction_cost', 0):,.0f}")
+                            st.metric("Annual Operating", f"${cost_data.get('annual_operating_cost', 0):,.0f}")
+                            st.metric("Cost per m²", f"${cost_data.get('cost_per_sqm', 0):,.0f}")
+                            
+                            # ROI calculation
+                            construction_cost = cost_data.get('construction_cost', 0)
+                            annual_revenue = revenue_data.get('annual_revenue', 0)
+                            annual_operating = cost_data.get('annual_operating_cost', 0)
+                            
+                            if construction_cost > 0:
+                                annual_profit = annual_revenue - annual_operating
+                                roi = (annual_profit / construction_cost) * 100
+                                st.metric("ROI", f"{roi:.1f}%")
+                                payback_period = construction_cost / annual_profit if annual_profit > 0 else 0
+                                st.metric("Payback Period", f"{payback_period:.1f} years")
+                    
+                    with analytics_tab4:
+                        st.write("### Optimization Insights & Recommendations")
+                        
+                        # Key insights
+                        insights = analytics_system.get_key_insights()
+                        st.write("**Key Insights:**")
+                        for insight in insights:
+                            st.info(insight)
+                        
+                        # Optimization suggestions
+                        st.write("**Optimization Recommendations:**")
+                        for i, suggestion in enumerate(analytics_report.optimization_suggestions, 1):
+                            st.write(f"{i}. {suggestion}")
+                        
+                        # Performance comparison
+                        st.write("**Performance vs Industry Standards:**")
+                        performance_comparison = {
+                            'Metric': ['Space Utilization', 'Corridor Efficiency', 'Accessibility', 'Compliance'],
+                            'Current': [
+                                analytics_report.space_utilization,
+                                analytics_report.corridor_efficiency,
+                                analytics_report.accessibility_score,
+                                analytics_report.compliance_score
+                            ],
+                            'Industry Standard': [0.75, 0.85, 0.90, 0.95]
+                        }
+                        
+                        comparison_df = pd.DataFrame(performance_comparison)
+                        comparison_df['Gap'] = comparison_df['Current'] - comparison_df['Industry Standard']
+                        st.dataframe(comparison_df, use_container_width=True)
+                        
+                        # Export analytics report
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("📊 Export Analytics Report"):
+                                # Create detailed report
+                                report_data = {
+                                    'Project': project_name,
+                                    'Generated': analytics_report.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                                    'Performance Grade': analytics_report.performance_grade,
+                                    'Space Utilization': f"{analytics_report.space_utilization:.1%}",
+                                    'Total Îlots': analytics_report.total_ilots,
+                                    'Total Corridors': analytics_report.total_corridors,
+                                    'Accessibility Score': f"{analytics_report.accessibility_score:.1%}",
+                                    'Compliance Score': f"{analytics_report.compliance_score:.1%}",
+                                    'Estimated Revenue': f"${analytics_report.revenue_estimates.get('annual_revenue', 0):,.0f}"
+                                }
+                                
+                                report_df = pd.DataFrame(list(report_data.items()), columns=['Metric', 'Value'])
+                                csv_data = report_df.to_csv(index=False)
+                                st.download_button(
+                                    "📥 Download CSV Report",
+                                    csv_data,
+                                    f"{project_name}_analytics_report.csv",
+                                    "text/csv"
+                                )
+                        with col2:
+                            if st.button("🔄 Regenerate Analytics"):
+                                # Clear analytics to force regeneration
+                                if 'analytics_report' in st.session_state:
+                                    del st.session_state['analytics_report']
+                                if 'analytics_system' in st.session_state:
+                                    del st.session_state['analytics_system']
+                                st.rerun()
+                
+                else:
+                    st.info("Generate îlots and corridors to access the advanced analytics dashboard")
+                    
+                    # Show basic Phase 1 analysis
+                    st.write("### Phase 1 Analysis Available")
+                    
+                    # Display comprehensive analysis
+                    processor_metadata = phase1_data['processor_metadata']
+                    
+                    # Create analysis dashboard
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**Geometric Analysis:**")
+                        analysis_data = {
+                            "Element Type": ["Walls", "Rooms", "Restricted Areas", "Entrances"],
+                            "Count": [
+                                len(geometric_analysis['walls']),
+                                len(geometric_analysis['rooms']),
+                                len(geometric_analysis['restricted_areas']),
+                                len(geometric_analysis['entrances'])
+                            ],
+                            "Total Length/Area": [
+                                f"{sum(w.length for w in geometric_analysis['walls']):.1f}m",
+                                f"{sum(r.area for r in geometric_analysis['rooms']):.1f}m²",
+                                f"{len(geometric_analysis['restricted_areas'])} zones",
+                                f"{len(geometric_analysis['entrances'])} openings"
+                            ]
+                        }
+                        
+                        import pandas as pd
+                        df = pd.DataFrame(analysis_data)
+                        st.dataframe(df, use_container_width=True)
+                    
+                    with col2:
+                        st.write("**Processing Quality:**")
+                        quality_metrics = {
+                            "Confidence Score": f"{best_plan.confidence_score:.1%}",
+                            "Processing Method": "Ultra CAD Processor",
+                            "Scale": f"1:{best_plan.scale}",
+                            "Units": best_plan.units,
+                            "Entities Processed": best_plan.sheet_info.get('entity_count', 'N/A'),
+                            "File Format": best_plan.sheet_info.get('format', 'CAD')
+                        }
+                        
+                        for metric, value in quality_metrics.items():
+                            st.metric(metric, value)
+                    
+                    # Room analysis if available
+                    if geometric_analysis['rooms']:
+                        st.write("**Room Analysis:**")
+                        room_data = []
+                        for i, room in enumerate(geometric_analysis['rooms']):
+                            room_data.append({
+                                "Room ID": f"Room_{i+1:02d}",
+                                "Type": room.room_type,
+                                "Area": f"{room.area:.1f}m²",
+                                "Perimeter": f"{room.perimeter:.1f}m",
+                                "Openings": len(room.openings)
+                            })
+                        
+                        room_df = pd.DataFrame(room_data)
+                        st.dataframe(room_df, use_container_width=True)
         
         else:
             # Legacy visualization mode
