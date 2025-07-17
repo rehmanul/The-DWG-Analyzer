@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 import time
 
-def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, population_size=30, corridor_width=1.2, max_seconds=60):
+def generate_ilots(zones, bounds, config, forbidden_union, max_generations=20, population_size=10, corridor_width=1.2, max_seconds=15):
     """
     Genetic algorithm for îlot placement with constraint compliance and corridor support.
     Returns: dict with 'ilots' and 'corridors'.
@@ -26,8 +26,8 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, p
         ('3-5m²', (3.0, 5.0), config['size_3_5']),
         ('5-10m²', (5.0, 10.0), config['size_5_10'])
     ]
-    # Limit îlot count to prevent memory issues
-    estimated_total = min(500, max(10, int(total_area * 0.0001)))
+    # Highly optimized îlot count for fast processing
+    estimated_total = min(50, max(10, int(total_area * 0.00002)))
     ilot_specs = []
     for category, (min_size, max_size), percentage in categories:
         count = int(estimated_total * percentage)
@@ -112,7 +112,7 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, p
         child = parent1[:point] + parent2[point:]
         return child
 
-    def mutate(genes, rate=0.1):
+    def mutate(genes, rate=0.05):
         new_genes = list(genes)
         for i in range(len(new_genes)):
             if random.random() < rate:
@@ -122,20 +122,28 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, p
                 new_genes[i] = (x, y, rot)
         return new_genes
 
-    # Safety check for memory usage
-    if len(ilot_specs) > 1000:
-        logger.warning(f"Too many îlot specs ({len(ilot_specs)}), limiting to 1000")
-        ilot_specs = ilot_specs[:1000]
+    # Safety check for performance optimization
+    if len(ilot_specs) > 50:
+        logger.warning(f"Too many îlot specs ({len(ilot_specs)}), limiting to 50 for performance")
+        ilot_specs = ilot_specs[:50]
     
     # Genetic algorithm main loop with timeout and progress logs
     population = [random_chromosome() for _ in range(population_size)]
     best_fitness = 0
     best_ilots = []
     last_log_time = time.time()
+    no_improvement_count = 0
+    
     for gen in range(max_generations):
         if time.time() - start_time > max_seconds:
             logger.warning(f"[IlotOptimizer] Timeout: Exceeded {max_seconds} seconds at generation {gen}.")
             break
+            
+        # Early termination if no improvement for 5 generations
+        if no_improvement_count >= 5:
+            logger.info(f"[IlotOptimizer] Early termination: No improvement for 5 generations at gen {gen}")
+            break
+            
         scored = []
         for chrom in population:
             try:
@@ -144,21 +152,28 @@ def generate_ilots(zones, bounds, config, forbidden_union, max_generations=50, p
             except Exception as e:
                 logger.error(f"Fitness error: {e}")
         scored.sort(reverse=True, key=lambda x: x[0])
+        
         if scored and scored[0][0] > best_fitness:
             best_fitness = scored[0][0]
             best_ilots = scored[0][2]
-        # Selection
+            no_improvement_count = 0
+        else:
+            no_improvement_count += 1
+            
+        # Selection (keep top 50% for faster convergence)
         survivors = [chrom for _, chrom, _ in scored[:population_size//2]]
+        
         # Crossover and mutation
         next_gen = []
         while len(next_gen) < population_size:
             p1, p2 = random.sample(survivors, 2)
             child = crossover(p1, p2)
-            child = mutate(child)
+            child = mutate(child, rate=0.05)  # Reduced mutation rate
             next_gen.append(child)
         population = next_gen
+        
         # More granular progress logs
-        if gen % 5 == 0 or (time.time() - last_log_time) > 5:
+        if gen % 3 == 0 or (time.time() - last_log_time) > 3:
             logger.info(f"[IlotOptimizer] Generation {gen}: best fitness {best_fitness:.2f}, ilots {len(best_ilots)}, elapsed {time.time()-start_time:.1f}s")
             last_log_time = time.time()
 
