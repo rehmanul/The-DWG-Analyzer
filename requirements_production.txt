@@ -1,0 +1,36 @@
+# Production System Requirements
+# Clean, deduplicated dependencies for the îlot placement system
+
+# Core Framework
+streamlit>=1.28.0
+
+# CAD Processing
+ezdxf>=1.1.0
+
+# Geometry & Spatial
+shapely>=2.0.0
+scipy>=1.11.0
+
+# Numerical Computing
+numpy>=1.24.0
+
+# Data Handling
+pandas>=2.0.0
+
+# Visualization
+plotly>=5.17.0
+matplotlib>=3.7.0
+
+# Machine Learning (for clustering)
+scikit-learn>=1.3.0
+
+# Image Processing (optional, for future enhancements)
+Pillow>=10.0.0
+opencv-python-headless>=4.8.0
+
+# PDF Processing (optional, for exports)
+PyMuPDF>=1.23.0
+reportlab>=4.0.0
+
+# Graph Algorithms (for corridor pathfinding)
+networkx>=3.1

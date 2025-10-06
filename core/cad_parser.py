@@ -311,9 +311,9 @@ def extract_hatch_geometry(entity) -> Dict[str, Any]:
 
 def classify_entity_type(entity, geometry_data) -> str:
     """Classify entity type based on color coding as per client requirements"""
-    layer = geometry_data['layer'].upper()
-    color = geometry_data['color']
-    area = geometry_data['area']
+    layer = getattr(geometry_data, 'layer', geometry_data.get('layer', '0')).upper()
+    color = getattr(geometry_data, 'color', geometry_data.get('color', 7))
+    area = getattr(geometry_data, 'area', geometry_data.get('area', 0))
 
     # Enhanced color detection - check entity attributes more thoroughly
     entity_color = color
@@ -341,9 +341,9 @@ def classify_entity_type(entity, geometry_data) -> str:
                     entity_color = 5
 
     # CLIENT REQUIREMENTS COLOR CODING:
-    # Blue (5) = NO ENTREE (restricted areas)
-    # Red (1) = ENTREE/SORTIE (entrances/exits)  
-    # Black/Gray (7,8,0) = MUR (walls)
+    # Blue (5) = NO ENTREE (restricted areas - stairs, elevators)
+    # Red (1) = ENTREE/SORTIE (entrances/exits - no îlots can touch)  
+    # Black/Gray (7,8,0) = MUR (walls - îlots CAN touch)
     # White/Default = Open spaces for îlots
 
     # Priority 1: Enhanced color-based classification
