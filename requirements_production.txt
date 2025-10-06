@@ -1,8 +1,10 @@
 # Production System Requirements
 # Clean, deduplicated dependencies for the îlot placement system
 
-# Core Framework
+# Core Frameworks
 streamlit>=1.28.0
+flask>=2.3.0
+flask-cors>=4.0.0
 
 # CAD Processing
 ezdxf>=1.1.0
