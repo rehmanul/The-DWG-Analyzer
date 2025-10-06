@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced CAD SDK Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+            background: #0a0a0a;
+            color: #ffffff;
+        }
+
+        #viewer-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Minimal UI Controls */
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 20, 20, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .control-btn {
+            background: rgba(99, 102, 241, 0.8);
+            border: none;
+            padding: 10px 20px;
+            margin: 5px 0;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-btn:hover {
+            background: rgba(99, 102, 241, 1);
+            transform: translateY(-2px);
+        }
+
+        .control-btn.active {
+            background: rgba(16, 185, 129, 0.8);
+        }
+
+        /* File Upload */
+        #file-input {
+            display: none;
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(20, 20, 20, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Status Bar */
+        .status-bar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 20, 20, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 12px 18px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+            min-width: 150px;
+        }
+
+        .status-item {
+            margin: 4px 0;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .status-label {
+            opacity: 0.7;
+        }
+
+        .status-value {
+            font-weight: 600;
+            color: #10b981;
+        }
+
+        /* Slider Controls */
+        .slider-control {
+            margin: 12px 0;
+        }
+
+        .slider-label {
+            font-size: 11px;
+            opacity: 0.8;
+            margin-bottom: 6px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #6366f1;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* Loading Indicator */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 20, 0.95);
+            padding: 30px 50px;
+            border-radius: 12px;
+            z-index: 2000;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #6366f1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Distribution Panel */
+        .distribution-panel {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            background: rgba(20, 20, 20, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 280px;
+        }
+
+        .dist-title {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 10px;
+        }
+
+        .separator {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="viewer-container">
+        <canvas id="canvas"></canvas>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <input type="file" id="file-input" accept=".dxf">
+            <button class="control-btn" onclick="document.getElementById('file-input').click()">
+                📁 Load DXF
+            </button>
+            
+            <div class="separator"></div>
+            
+            <button class="control-btn" id="btn-plan" onclick="setView('plan')">
+                📐 Plan Only
+            </button>
+            <button class="control-btn" id="btn-ilots" onclick="setView('ilots')">
+                🟢 Îlots
+            </button>
+            <button class="control-btn" id="btn-corridors" onclick="setView('corridors')">
+                🟣 Corridors
+            </button>
+            <button class="control-btn active" id="btn-complete" onclick="setView('complete')">
+                ✨ Complete
+            </button>
+            
+            <div class="separator"></div>
+            
+            <button class="control-btn" onclick="processFloorPlan()">
+                🚀 Generate
+            </button>
+            
+            <div class="separator"></div>
+            
+            <!-- Îlot Count -->
+            <div class="slider-control">
+                <div class="slider-label">Îlots: <span id="ilot-count-val">100</span></div>
+                <input type="range" id="ilot-count" min="20" max="300" value="100" step="10">
+            </div>
+            
+            <!-- Corridor Width -->
+            <div class="slider-control">
+                <div class="slider-label">Corridor: <span id="corridor-width-val">1.5</span>m</div>
+                <input type="range" id="corridor-width" min="1.0" max="3.0" value="1.5" step="0.1">
+            </div>
+            
+            <!-- Wall Thickness -->
+            <div class="slider-control">
+                <div class="slider-label">Walls: <span id="wall-thickness-val">0.20</span>m</div>
+                <input type="range" id="wall-thickness" min="0.10" max="0.50" value="0.20" step="0.05">
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="status-label">Îlots:</span>
+                <span class="status-value" id="stat-ilots">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Corridors:</span>
+                <span class="status-value" id="stat-corridors">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Coverage:</span>
+                <span class="status-value" id="stat-coverage">0%</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Area:</span>
+                <span class="status-value" id="stat-area">0m²</span>
+            </div>
+        </div>
+
+        <!-- Distribution Panel -->
+        <div class="distribution-panel">
+            <div class="dist-title">Size Distribution</div>
+            
+            <div class="slider-control">
+                <div class="slider-label">0-1m²: <span id="dist-0-1-val">10</span>%</div>
+                <input type="range" id="dist-0-1" min="0" max="100" value="10" step="5">
+            </div>
+            
+            <div class="slider-control">
+                <div class="slider-label">1-3m²: <span id="dist-1-3-val">25</span>%</div>
+                <input type="range" id="dist-1-3" min="0" max="100" value="25" step="5">
+            </div>
+            
+            <div class="slider-control">
+                <div class="slider-label">3-5m²: <span id="dist-3-5-val">30</span>%</div>
+                <input type="range" id="dist-3-5" min="0" max="100" value="30" step="5">
+            </div>
+            
+            <div class="slider-control">
+                <div class="slider-label">5-10m²: <span id="dist-5-10-val">35</span>%</div>
+                <input type="range" id="dist-5-10" min="0" max="100" value="35" step="5">
+            </div>
+            
+            <div class="separator"></div>
+            <div class="status-item">
+                <span class="status-label">Total:</span>
+                <span class="status-value" id="dist-total">100%</span>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgba(50, 50, 50, 0.9);"></div>
+                <span>Walls (MUR)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgba(70, 130, 255, 0.8);"></div>
+                <span>Restricted (NO ENTREE)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgba(255, 68, 68, 0.8);"></div>
+                <span>Entrance (ENTREE/SORTIE)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgba(46, 204, 113, 0.9);"></div>
+                <span>Îlots</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgba(155, 89, 182, 0.7);"></div>
+                <span>Corridors</span>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Processing...</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="advanced_sdk_viewer.js"></script>
+</body>
+</html>

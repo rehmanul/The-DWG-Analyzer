@@ -56,8 +56,8 @@ class ProductionCADParser:
         256: ZoneType.WALL,        # BYLAYER (default to wall)
     }
     
-    def __init__(self):
-        self.wall_buffer = 0.15  # 15cm wall thickness
+    def __init__(self, wall_thickness: float = 0.25):
+        self.wall_buffer = wall_thickness  # User-configurable wall thickness (default 25cm)
         self.min_area_threshold = 0.1  # Minimum 0.1m² area
         self.entrance_buffer = 0.2  # 20cm clearance around entrances
         
