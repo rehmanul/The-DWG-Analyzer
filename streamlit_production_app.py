@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 
 # Page configuration
 st.set_page_config(
-    page_title="Production Îlot Placement System",
+    page_title="🏗️ Îlot Placement",
     page_icon="🏗️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Custom CSS
@@ -109,8 +109,8 @@ def create_visualization(result, view_mode='complete'):
             fig.add_trace(go.Scatter(
                 x=x_coords, y=y_coords,
                 fill='toself',
-                fillcolor='rgba(50, 50, 50, 0.8)',
-                line=dict(color='black', width=2),
+                fillcolor='rgba(26, 26, 26, 0.95)',
+                line=dict(color='black', width=4),
                 name='⬛ Walls (MUR)' if i == 0 else None,
                 legendgroup='walls',
                 showlegend=(i == 0),
@@ -221,98 +221,36 @@ def create_visualization(result, view_mode='complete'):
 
 
 def main():
-    # Header
+    # Minimal header
     st.markdown("""
     <div class="main-header">
-        <h1>🏗️ Production Îlot Placement System</h1>
-        <p>Professional CAD Processing • Automatic Îlot Placement • Intelligent Corridor Generation</p>
-        <p style="font-size: 0.9em; margin-top: 10px;">
-            <strong>NO SIMULATIONS</strong> - Real architectural processing with production-grade algorithms
-        </p>
+        <h1>🏗️ Îlot Placement</h1>
     </div>
     """, unsafe_allow_html=True)
     
     # Sidebar configuration
     with st.sidebar:
-        st.header("⚙️ Configuration")
+        st.header("⚙️")
         
-        st.markdown("---")
+        size_0_1 = st.slider("0-1m²", 0.0, 1.0, 0.10, 0.05)
+        size_1_3 = st.slider("1-3m²", 0.0, 1.0, 0.25, 0.05)
+        size_3_5 = st.slider("3-5m²", 0.0, 1.0, 0.30, 0.05)
+        size_5_10 = st.slider("5-10m²", 0.0, 1.0, 0.35, 0.05)
         
-        # Îlot size distribution
-        st.subheader("📊 Îlot Size Distribution")
-        st.markdown("*Define the percentage of each îlot size category*")
-        
-        size_0_1 = st.slider(
-            "Micro (0-1 m²)",
-            min_value=0.0, max_value=1.0, value=0.10, step=0.05,
-            help="Percentage of îlots between 0-1 m²"
-        )
-        
-        size_1_3 = st.slider(
-            "Small (1-3 m²)",
-            min_value=0.0, max_value=1.0, value=0.25, step=0.05,
-            help="Percentage of îlots between 1-3 m²"
-        )
-        
-        size_3_5 = st.slider(
-            "Medium (3-5 m²)",
-            min_value=0.0, max_value=1.0, value=0.30, step=0.05,
-            help="Percentage of îlots between 3-5 m²"
-        )
-        
-        size_5_10 = st.slider(
-            "Large (5-10 m²)",
-            min_value=0.0, max_value=1.0, value=0.35, step=0.05,
-            help="Percentage of îlots between 5-10 m²"
-        )
-        
-        # Validate total percentage
         total_pct = size_0_1 + size_1_3 + size_3_5 + size_5_10
         if abs(total_pct - 1.0) > 0.01:
-            st.warning(f"⚠️ Total percentage: {total_pct*100:.0f}% (should be 100%)")
+            st.warning(f"⚠️ {total_pct*100:.0f}%")
         else:
-            st.success(f"✅ Total percentage: 100%")
+            st.success(f"✅ 100%")
         
         st.markdown("---")
-        
-        # Placement parameters
-        st.subheader("🎯 Placement Parameters")
-        
-        total_ilots = st.number_input(
-            "Target number of îlots",
-            min_value=10, max_value=500, value=100, step=10,
-            help="Total number of îlots to place"
-        )
-        
-        min_spacing = st.slider(
-            "Minimum spacing (m)",
-            min_value=0.1, max_value=2.0, value=0.3, step=0.1,
-            help="Minimum distance between îlots"
-        )
-        
-        corridor_width = st.slider(
-            "Corridor width (m)",
-            min_value=1.0, max_value=3.0, value=1.5, step=0.1,
-            help="Width of corridors between îlot rows"
-        )
-        
-        st.markdown("---")
-        st.markdown("### 📋 System Rules")
-        st.markdown("""
-        - **Black lines** = Walls (îlots CAN touch)
-        - **Blue zones** = NO ENTREE (stairs, elevators)
-        - **Red zones** = ENTREE/SORTIE (no îlot contact)
-        - **Corridors** = Auto-generated between rows
-        """)
+        total_ilots = st.number_input("Îlots", 10, 500, 100, 10)
+        min_spacing = st.slider("Spacing (m)", 0.1, 2.0, 0.3, 0.1)
+        corridor_width = st.slider("Corridor (m)", 1.0, 3.0, 1.5, 0.1)
+        wall_thickness = st.slider("Walls (m)", 0.10, 0.50, 0.25, 0.05)
     
     # Main content
-    st.header("📁 Upload Floor Plan")
-    
-    uploaded_file = st.file_uploader(
-        "Choose a DXF file",
-        type=['dxf'],
-        help="Upload your architectural floor plan in DXF format"
-    )
+    uploaded_file = st.file_uploader("📁 DXF File", type=['dxf'])
     
     if uploaded_file is not None:
         # Save uploaded file temporarily
@@ -322,8 +260,8 @@ def main():
         
         try:
             # Process button
-            if st.button("🚀 Process Floor Plan", type="primary"):
-                with st.spinner("Processing floor plan..."):
+            if st.button("🚀 Generate", type="primary"):
+                with st.spinner("Processing..."):
                     # Create size configuration
                     size_config = IlotSizeConfig(
                         size_0_1_pct=size_0_1,
@@ -332,8 +270,9 @@ def main():
                         size_5_10_pct=size_5_10
                     )
                     
-                    # Process
+                    # Process with wall thickness
                     orchestrator = ProductionOrchestrator()
+                    orchestrator.cad_parser.wall_buffer = wall_thickness
                     result = orchestrator.process_floor_plan(
                         dxf_file_path=tmp_file_path,
                         size_config=size_config,
@@ -347,19 +286,9 @@ def main():
                 
                 # Display results
                 if result.success:
-                    st.markdown(f"""
-                    <div class="success-box">
-                        <strong>✅ Processing Complete!</strong><br>
-                        Processed in {result.processing_time:.2f} seconds
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.success(f"✅ {result.processing_time:.2f}s")
                 else:
-                    st.markdown(f"""
-                    <div class="warning-box">
-                        <strong>⚠️ Processing Failed</strong><br>
-                        {result.error_message}
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.error(f"⚠️ {result.error_message}")
         
         finally:
             # Cleanup temporary file
@@ -374,35 +303,22 @@ def main():
         
         if result.success:
             # Metrics
-            st.header("📊 Results")
-            
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                st.metric("Îlots Placed", f"{len(result.ilots)}", 
-                         f"{result.ilot_coverage_pct:.1f}% coverage")
+                st.metric("Îlots", f"{len(result.ilots)}", f"{result.ilot_coverage_pct:.1f}%")
             
             with col2:
-                st.metric("Corridors", f"{len(result.corridors)}",
-                         f"{result.corridor_coverage_pct:.1f}% area")
+                st.metric("Corridors", f"{len(result.corridors)}", f"{result.corridor_coverage_pct:.1f}%")
             
             with col3:
-                st.metric("Total Coverage", f"{result.total_coverage_pct:.1f}%",
-                         f"{result.total_area:.0f} m²")
+                st.metric("Coverage", f"{result.total_coverage_pct:.1f}%", f"{result.total_area:.0f}m²")
             
             with col4:
-                st.metric("Processing Time", f"{result.processing_time:.2f}s",
-                         f"Score: {result.placement_score:.0f}")
+                st.metric("Time", f"{result.processing_time:.2f}s")
             
             # Visualization tabs
-            st.header("🎨 Visualization")
-            
-            tab1, tab2, tab3, tab4 = st.tabs([
-                "📐 Floor Plan Only",
-                "🟢 Îlot Placement",
-                "🟣 Complete with Corridors",
-                "📈 Analytics"
-            ])
+            tab1, tab2, tab3, tab4 = st.tabs(["📐 Plan", "🟢 Îlots", "🟣 Complete", "📈 Data"])
             
             with tab1:
                 st.plotly_chart(create_visualization(result, 'plan'), use_container_width=True)
@@ -417,9 +333,6 @@ def main():
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    st.subheader("Îlot Distribution")
-                    
-                    # Category distribution
                     category_counts = {}
                     category_areas = {}
                     for ilot in result.ilots:
@@ -429,30 +342,17 @@ def main():
                     
                     import pandas as pd
                     df = pd.DataFrame({
-                        'Category': list(category_counts.keys()),
+                        'Size': list(category_counts.keys()),
                         'Count': list(category_counts.values()),
-                        'Total Area (m²)': [f"{a:.2f}" for a in category_areas.values()]
+                        'Area': [f"{a:.1f}" for a in category_areas.values()]
                     })
                     st.dataframe(df, use_container_width=True)
                 
                 with col2:
-                    st.subheader("System Metrics")
-                    
                     metrics_data = {
-                        'Metric': [
-                            'Total Floor Area',
-                            'Open Space Area',
-                            'Îlot Coverage',
-                            'Corridor Coverage',
-                            'Walls',
-                            'Restricted Areas',
-                            'Entrances'
-                        ],
+                        'Element': ['Area', 'Walls', 'Restricted', 'Entrances'],
                         'Value': [
-                            f"{result.total_area:.2f} m²",
-                            f"{result.total_area:.2f} m²",
-                            f"{result.ilot_coverage_pct:.1f}%",
-                            f"{result.corridor_coverage_pct:.1f}%",
+                            f"{result.total_area:.0f}m²",
                             f"{len(result.walls)}",
                             f"{len(result.restricted_areas)}",
                             f"{len(result.entrances)}"
@@ -461,32 +361,16 @@ def main():
                     st.dataframe(pd.DataFrame(metrics_data), use_container_width=True)
     
     else:
-        # Instructions
+        # Minimal legend
         st.markdown("""
         <div class="info-box">
-            <h3>🎯 How to Use</h3>
-            <ol>
-                <li><strong>Upload</strong> your DXF floor plan file</li>
-                <li><strong>Configure</strong> îlot size distribution in the sidebar</li>
-                <li><strong>Adjust</strong> placement parameters (spacing, corridor width)</li>
-                <li><strong>Click</strong> "Process Floor Plan" to start</li>
-                <li><strong>View</strong> results and visualizations</li>
-            </ol>
-            
-            <h4>📋 Color Coding Requirements:</h4>
+            <h4>📋 Legend</h4>
             <ul>
-                <li><strong>Black lines</strong> → Walls (îlots can touch)</li>
-                <li><strong>Blue zones</strong> → Restricted areas (NO ENTREE - stairs, elevators)</li>
-                <li><strong>Red zones</strong> → Entrances/Exits (ENTREE/SORTIE - no îlot contact)</li>
-            </ul>
-            
-            <h4>✨ Features:</h4>
-            <ul>
-                <li>Real CAD entity processing (no simulations)</li>
-                <li>Genetic algorithm for optimal placement</li>
-                <li>Automatic corridor generation between rows</li>
-                <li>Full constraint compliance</li>
-                <li>Professional visualizations</li>
+                <li>⬛ <strong>Walls</strong> → îlots CAN touch</li>
+                <li>🔵 <strong>Restricted</strong> → NO ENTREE</li>
+                <li>🔴 <strong>Entrances</strong> → No îlot contact</li>
+                <li>🟢 <strong>Îlots</strong> → Placed units</li>
+                <li>🟣 <strong>Corridors</strong> → Auto-generated</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
